@@ -1,0 +1,10 @@
+# Abaikan library dan config di folder backend
+backend/node_modules/
+backend/.env
+
+# Abaikan library di folder frontend (jika nanti ada)
+frontend/node_modules/
+
+# File sampah sistem
+.DS_Store
+Thumbs.db
