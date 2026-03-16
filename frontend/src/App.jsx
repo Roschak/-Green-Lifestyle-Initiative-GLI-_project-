@@ -1,35 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import LandingPage     from './pages/LandingPage'
+import LoginPage       from './pages/LoginPage'
+import RegisterPage    from './pages/RegisterPage'
+import AdminDashboard  from './pages/admin/AdminDashboard'
+import AdminModerasi   from './pages/admin/AdminModerasi'
+import AdminVerifikasi from './pages/admin/AdminVerifikasi'
+import UserDashboard   from './pages/user/UserDashboard'
+import UserAksi        from './pages/user/UserAksi'
+import UserRiwayat     from './pages/user/UserRiwayat'
+import UserPeringkat   from './pages/user/UserPeringkat'
+import UserProfil      from './pages/user/UserProfil'
 
-function App() {
-  const [count, setCount] = useState(0)
+function ProtectedRoute({ children, requireAdmin }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (requireAdmin && user.role !== 'admin') return <Navigate to="/user/dashboard" replace />
+  if (!requireAdmin && user.role === 'admin') return <Navigate to="/admin/dashboard" replace />
+  return children
+}
 
+function AppRoutes() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Routes>
+      <Route path="/"         element={<LandingPage />} />
+      <Route path="/login"    element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/admin/dashboard"      element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/moderasi"       element={<ProtectedRoute requireAdmin><AdminModerasi /></ProtectedRoute>} />
+      <Route path="/admin/verifikasi"     element={<ProtectedRoute requireAdmin><AdminVerifikasi /></ProtectedRoute>} />
+      <Route path="/admin/verifikasi/:id" element={<ProtectedRoute requireAdmin><AdminVerifikasi /></ProtectedRoute>} />
+      <Route path="/user/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+      <Route path="/user/aksi"      element={<ProtectedRoute><UserAksi /></ProtectedRoute>} />
+      <Route path="/user/riwayat"   element={<ProtectedRoute><UserRiwayat /></ProtectedRoute>} />
+      <Route path="/user/peringkat" element={<ProtectedRoute><UserPeringkat /></ProtectedRoute>} />
+      <Route path="/user/profil"    element={<ProtectedRoute><UserProfil /></ProtectedRoute>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
+  )
+}
