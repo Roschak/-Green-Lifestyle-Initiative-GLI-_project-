@@ -2,18 +2,19 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-// 1. Rute Statis
-router.get('/stats',        adminController.getDashboardStats);
-router.get('/users',        adminController.getUsers);
-router.get('/actions',      adminController.getAllActions);
-router.get('/leaderboard',  adminController.getLeaderboard);
+// ============ ROUTE STATS & DASHBOARD ============
+router.get('/stats', protect, adminOnly, adminController.getDashboardStats);
+router.get('/profile/stats', protect, adminOnly, adminController.getAdminStats);
 
-// ✅ Endpoint baru: statistik admin (total verifikasi dll)
-router.get('/profile/stats', adminController.getAdminStats);
+// ============ ROUTE DATA ============
+router.get('/users', protect, adminOnly, adminController.getUsers);
+router.get('/users/:id', protect, adminOnly, adminController.getUserDetail);
+router.get('/actions', protect, adminOnly, adminController.getAllActions);
+router.get('/leaderboard', protect, adminOnly, adminController.getLeaderboard);
 
-// 2. Rute Dinamis
-router.get('/users/:id',    adminController.getUserDetail);
-router.put('/actions/:id',  adminController.verifyAction);
+// ============ ROUTE VERIFIKASI ============
+router.put('/actions/:id', protect, adminOnly, adminController.verifyAction);
 
 module.exports = router;

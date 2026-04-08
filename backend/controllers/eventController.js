@@ -2,6 +2,13 @@
 const db = require('../config/db');
 const cloudinary = require('cloudinary').v2;
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 // Helper auto update status event
 const autoUpdateStatus = async () => {
   const now = new Date();
@@ -26,9 +33,14 @@ const autoUpdateStatus = async () => {
   if (changed) await batch.commit();
 };
 
-// Helper serialize event
+// Helper serialize event dengan timezone handling
 const serializeEvent = (id, data) => {
-  const toISO = (v) => v?.toDate ? v.toDate().toISOString() : v;
+  const toISO = (v) => {
+    if (!v) return null;
+    if (v?.toDate) return v.toDate().toISOString();
+    if (v instanceof Date) return v.toISOString();
+    return v;
+  };
   return {
     id,
     ...data,
@@ -37,6 +49,22 @@ const serializeEvent = (id, data) => {
     event_start: toISO(data.event_start),
     event_end: toISO(data.event_end),
     created_at: toISO(data.created_at),
+  };
+};
+
+// Helper serialize registration dengan timestamp
+const serializeRegistration = (id, data) => {
+  const toISO = (v) => {
+    if (!v) return null;
+    if (v?.toDate) return v.toDate().toISOString();
+    if (v instanceof Date) return v.toISOString();
+    return v;
+  };
+  return {
+    id,
+    ...data,
+    registered_at: toISO(data.registered_at),
+    created_at: toISO(data.created_at)
   };
 };
 
@@ -111,23 +139,27 @@ exports.createEvent = async (req, res) => {
     
     // Upload thumbnail ke Cloudinary
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'gli_events',
-        transformation: [{ width: 400, height: 400, crop: 'limit' }]
-      });
-      thumbnailUrl = result.secure_url;
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'gli_events',
+          transformation: [{ width: 400, height: 400, crop: 'limit' }]
+        });
+        thumbnailUrl = result.secure_url;
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+      }
     }
 
     const eventData = {
-      title,
+      title: title || '',
       description: description || '',
       thumbnail: thumbnailUrl,
       thumbnail_type: thumbnail_type || 'image',
       thumbnail_text: thumbnail_text || title,
       thumbnail_color: thumbnail_color || '#22c55e',
       wa_link: wa_link || '',
-      host_id,
-      host_role,
+      host_id: host_id || '',
+      host_role: host_role || 'admin',
       status: 'roundown',
       registration_start: new Date(registration_start),
       registration_end: new Date(registration_end),
@@ -196,12 +228,12 @@ exports.registerEvent = async (req, res) => {
     }
 
     const registrationData = {
-      event_id,
-      user_id,
-      name,
-      email,
+      event_id: event_id || '',
+      user_id: user_id || null,
+      name: name || '',
+      email: email || '',
       phone: phone || null,
-      is_gli_member,
+      is_gli_member: is_gli_member ? 1 : 0,
       proof_img: null,
       proof_status: 'pending',
       medal_awarded: false,
@@ -266,7 +298,7 @@ exports.verifyProof = async (req, res) => {
     }
     
     const reg = regDoc.data();
-    await regRef.update({ proof_status: status });
+    await regRef.update({ proof_status: status || 'pending' });
 
     // Jika approved dan member GLI → beri medali
     if (status === 'approved' && reg.is_gli_member && reg.user_id) {
@@ -305,7 +337,7 @@ exports.getEventRegistrations = async (req, res) => {
 
     const registrations = [];
     for (const doc of snapshot.docs) {
-      const reg = { id: doc.id, ...doc.data() };
+      const reg = serializeRegistration(doc.id, doc.data());
       if (reg.user_id) {
         const userDoc = await db.collection('users').doc(reg.user_id).get();
         reg.gli_name = userDoc.exists ? userDoc.data().name : null;
@@ -361,19 +393,19 @@ exports.getMyRegistrations = async (req, res) => {
 
     const registrations = [];
     for (const doc of snapshot.docs) {
-      const reg = { id: doc.id, ...doc.data() };
+      const reg = serializeRegistration(doc.id, doc.data());
       const eventDoc = await db.collection('events').doc(reg.event_id).get();
       
       if (eventDoc.exists) {
         const e = serializeEvent(eventDoc.id, eventDoc.data());
-        reg.title = e.title;
-        reg.event_status = e.status;
+        reg.title = e.title || '';
+        reg.event_status = e.status || 'unknown';
         reg.event_start = e.event_start;
         reg.event_end = e.event_end;
-        reg.location = e.location;
-        reg.wa_link = e.wa_link;
-        reg.thumbnail = e.thumbnail;
-        reg.medal_name = e.medal_name;
+        reg.location = e.location || '';
+        reg.wa_link = e.wa_link || '';
+        reg.thumbnail = e.thumbnail || null;
+        reg.medal_name = e.medal_name || 'Medali Sosialisasi';
         
         const hostDoc = await db.collection('users').doc(e.host_id).get();
         reg.host_name = hostDoc.exists ? hostDoc.data().name : 'Unknown';
@@ -402,7 +434,7 @@ exports.checkRegistration = async (req, res) => {
       const doc = snapshot.docs[0];
       return res.json({ 
         registered: true, 
-        registration: { id: doc.id, ...doc.data() } 
+        registration: serializeRegistration(doc.id, doc.data())
       });
     }
     return res.json({ registered: false });

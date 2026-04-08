@@ -18,7 +18,7 @@ router.get('/my/:user_id', protect, eventController.getMyRegistrations);
 router.get('/host/:host_id', protect, eventController.getMyEvents);
 router.get('/check/:event_id/:user_id', protect, eventController.checkRegistration);
 
-// ============ ADMIN / HOST ROUTES ============
+// ============ ADMIN / HOST ROUTES (PENTING: DI AKHIR AGAR TIDAK BENTROK) ============
 router.post('/create', protect, adminOnly, upload.single('thumbnail'), eventController.createEvent);
 router.post('/verify', protect, adminOnly, eventController.verifyProof);
 router.get('/:id/registrations', protect, adminOnly, eventController.getEventRegistrations);

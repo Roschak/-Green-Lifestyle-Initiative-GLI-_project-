@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const upload = require('../config/multer'); // Pastikan multer config sudah dibuat
+const upload = require('../config/multer');
 const { protect } = require('../middleware/authMiddleware');
 
 // Semua route user harus login

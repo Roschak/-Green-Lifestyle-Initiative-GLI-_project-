@@ -1,6 +1,7 @@
 // backend/controllers/userController.js
 const db = require('../config/db');
 const cloudinary = require('cloudinary').v2;
+const admin = require('firebase-admin');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -8,6 +9,31 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Helper serialize action dengan timezone handling
+const serializeAction = (id, data) => {
+  const toISO = (v) => {
+    if (!v) return null;
+    if (v?.toDate) return v.toDate().toISOString();
+    if (v instanceof Date) return v.toISOString();
+    return v;
+  };
+  return {
+    id,
+    user_id: data.user_id || '',
+    action_name: data.action_name || '',
+    description: data.description || '',
+    location: data.location || '',
+    img: data.img || null,
+    status: data.status || 'pending',
+    points: data.points || 0,
+    points_earned: data.points_earned || 0,
+    admin_note: data.admin_note || '',
+    rejection_reason: data.rejection_reason || '',
+    created_at: toISO(data.created_at),
+    updated_at: toISO(data.updated_at)
+  };
+};
 
 // ================= CREATE ACTION =================
 exports.createAction = async (req, res) => {
@@ -32,8 +58,9 @@ exports.createAction = async (req, res) => {
           transformation: [{ width: 800, height: 600, crop: 'limit' }]
         });
         imageUrl = result.secure_url;
+        console.log('✅ IMAGE UPLOADED TO CLOUDINARY:', imageUrl);
       } catch (uploadError) {
-        console.error('Cloudinary upload error:', uploadError);
+        console.error('❌ Cloudinary upload error:', uploadError);
       }
     }
 
@@ -48,7 +75,8 @@ exports.createAction = async (req, res) => {
       points_earned: 0,
       admin_note: '',
       rejection_reason: '',
-      created_at: new Date()
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
     };
 
     const docRef = await db.collection('actions').add(actionData);
@@ -74,6 +102,8 @@ exports.getUserActions = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User ID tidak ditemukan' });
     }
 
+    console.log('=== GET USER ACTIONS:', userId);
+
     const snapshot = await db.collection('actions')
       .where('user_id', '==', userId)
       .orderBy('created_at', 'desc')
@@ -82,13 +112,10 @@ exports.getUserActions = async (req, res) => {
     const actions = [];
     snapshot.forEach(doc => {
       const data = doc.data();
-      actions.push({ 
-        id: doc.id, 
-        ...data,
-        created_at: data.created_at ? data.created_at.toDate() : null
-      });
+      actions.push(serializeAction(doc.id, data));
     });
 
+    console.log('✅ TOTAL ACTIONS:', actions.length);
     return res.json(actions);
 
   } catch (err) {
@@ -101,6 +128,8 @@ exports.getUserActions = async (req, res) => {
 exports.getUserStats = async (req, res) => {
   const { id } = req.params;
   try {
+    console.log('=== GET USER STATS:', id);
+
     const userDoc = await db.collection('users').doc(id).get();
     if (!userDoc.exists) {
       return res.status(404).json({ message: 'User tidak ditemukan' });
@@ -115,13 +144,16 @@ exports.getUserStats = async (req, res) => {
     const pending = actions.filter(a => a.status === 'pending').length;
     const rejected = actions.filter(a => a.status === 'rejected').length;
 
-    return res.json({
+    const stats = {
       totalPoints: user.points || 0,
       totalActions: actions.length,
       approved,
       pending,
       rejected
-    });
+    };
+
+    console.log('✅ USER STATS:', stats);
+    return res.json(stats);
   } catch (err) {
     console.error('❌ ERROR STATS:', err);
     return res.status(500).json({ message: 'Gagal ambil stats user' });
@@ -132,6 +164,8 @@ exports.getUserStats = async (req, res) => {
 exports.getUserProfile = async (req, res) => {
   const { id } = req.params;
   try {
+    console.log('=== GET USER PROFILE:', id);
+
     const userDoc = await db.collection('users').doc(id).get();
     if (!userDoc.exists) {
       return res.status(404).json({ message: 'User tidak ditemukan' });
@@ -155,9 +189,10 @@ exports.getUserProfile = async (req, res) => {
 
     const medals = user.medal ? user.medal.split(',').map(m => m.trim()).filter(Boolean) : [];
 
-    return res.json({
-      name: user.name,
-      email: user.email,
+    const profile = {
+      id: id,
+      name: user.name || '',
+      email: user.email || '',
       points: user.points || 0,
       monthlyPoints: user.monthly_points || 0,
       level: user.level || 'Eco-Newbie',
@@ -167,7 +202,10 @@ exports.getUserProfile = async (req, res) => {
       rejected,
       pending,
       totalActions: actions.length
-    });
+    };
+
+    console.log('✅ USER PROFILE:', profile.name);
+    return res.json(profile);
 
   } catch (err) {
     console.error('❌ ERROR USER PROFILE:', err);

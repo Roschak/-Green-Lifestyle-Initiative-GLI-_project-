@@ -1,51 +1,87 @@
-/** * Komentar: Ragah, ini file Seeder (Pengisi Data Otomatis).
- * Gunanya agar database "gli-project-web" langsung ada isinya.
- */
-require('dotenv').config();
-const mysql = require('mysql2');
+// backend/seeder.js
+const db = require('./config/db');
 const bcrypt = require('bcryptjs');
+const admin = require('firebase-admin');
 
-const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASS || '',
-    database: process.env.DB_NAME || 'gli-project-web'
-});
+const seedData = async () => {
+  try {
+    console.log('🌱 Starting Firestore seeder...');
 
-async function runSeeder() {
+    // 1. CREATE ADMIN USER
     try {
-        console.log("⏳ Menghubungkan ke Laragon untuk isi data...");
+      const adminEmail = 'admin@gli.com';
+      const existing = await db.collection('users')
+        .where('email', '==', adminEmail)
+        .limit(1)
+        .get();
 
-        // Buat password dummy (admin123)
-        const salt = await bcrypt.genSalt(10);
-        const hashedPass = await bcrypt.hash('admin123', salt);
-
-        // Data yang akan dimasukkan (Kamu sebagai Admin)
-        const values = [
-            'Ragah Admin', 
-            'ragah@gli.com', 
-            hashedPass, 
-            'admin', 
-            1000, 
-            'Eco-Master'
-        ];
-
-        const sql = `INSERT IGNORE INTO users (name, email, password, role, points, level) VALUES (?, ?, ?, ?, ?, ?)`;
-
-        db.query(sql, values, (err, result) => {
-            if (err) throw err;
-            if (result.affectedRows > 0) {
-                console.log("✅ Berhasil! Akun Admin Ragah sudah masuk ke database.");
-            } else {
-                console.log("ℹ️ Akun sudah ada, tidak perlu ditambah lagi.");
-            }
-            process.exit(); 
+      if (existing.empty) {
+        const hashed = await bcrypt.hash('admin123456', 10);
+        const adminRef = await db.collection('users').add({
+          email: adminEmail,
+          name: 'Admin GLI',
+          password: hashed,
+          role: 'admin',
+          points: 1000,
+          monthly_points: 500,
+          level: 'Admin',
+          medal: 'PAHLAWAN ENERGI, HEMAT AIR',
+          status: 'offline',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          updated_at: admin.firestore.FieldValue.serverTimestamp()
         });
 
-    } catch (error) {
-        console.error("❌ Seeder Gagal:", error);
-        process.exit(1);
+        console.log('✅ Admin user created:', adminRef.id);
+      } else {
+        console.log('ℹ️ Admin user already exists');
+      }
+    } catch (err) {
+      console.error('❌ Admin creation error:', err.message);
     }
+
+    // 2. CREATE TEST USER
+    try {
+      const userEmail = 'user@gli.com';
+      const existing = await db.collection('users')
+        .where('email', '==', userEmail)
+        .limit(1)
+        .get();
+
+      if (existing.empty) {
+        const hashed = await bcrypt.hash('user123456', 10);
+        const userRef = await db.collection('users').add({
+          email: userEmail,
+          name: 'Test User',
+          password: hashed,
+          role: 'user',
+          points: 150,
+          monthly_points: 50,
+          level: 'Eco-Newbie',
+          medal: 'PENANAM POHON',
+          status: 'offline',
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log('✅ Test user created:', userRef.id);
+      } else {
+        console.log('ℹ️ Test user already exists');
+      }
+    } catch (err) {
+      console.error('❌ Test user creation error:', err.message);
+    }
+
+    console.log('🎉 Seeding complete!');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Seeding error:', error);
+    process.exit(1);
+  }
+};
+
+// Run seeder
+if (require.main === module) {
+  seedData();
 }
 
-runSeeder();
+module.exports = seedData;
