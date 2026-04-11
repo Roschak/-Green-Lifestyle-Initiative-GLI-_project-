@@ -25,7 +25,7 @@ export default function AdminMonitoring() {
     try {
       setLoading(true)
       const res = await getAllUsers()
-      setUsers(res.data) 
+      setUsers(res.data)
     } catch (err) {
       console.error("Gagal load data user:", err)
     } finally {
@@ -33,25 +33,25 @@ export default function AdminMonitoring() {
     }
   }
 
- const handleUserClick = async (id) => {
-  console.log("CLICK:", id)
+  const handleUserClick = async (id) => {
+    console.log("CLICK:", id)
 
-  setDetailLoadingId(id)
-  try {
-    const res = await getUserDetail(id)
-    console.log("DETAIL:", res.data)
-    setSelectedUser(res.data)
-  } catch (err) {
-    console.error("ERROR:", err.response || err)
-  } finally {
-    setDetailLoadingId(null)
+    setDetailLoadingId(id)
+    try {
+      const res = await getUserDetail(id)
+      console.log("DETAIL:", res.data)
+      setSelectedUser(res.data)
+    } catch (err) {
+      console.error("ERROR:", err.response || err)
+    } finally {
+      setDetailLoadingId(null)
+    }
   }
-}
 
   // ✅ DELETE USER
   const handleDeleteUser = async () => {
     if (!selectedUser) return
-    
+
     const confirm = window.confirm(`Yakin hapus user "${selectedUser.name}"? Aksi dan data mereka juga akan dihapus!`)
     if (!confirm) return
 
@@ -75,8 +75,8 @@ export default function AdminMonitoring() {
     return () => clearInterval(interval)
   }, [])
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -127,8 +127,8 @@ export default function AdminMonitoring() {
               </h2>
               <div className="flex items-center gap-3 bg-gray-50 px-5 py-3 rounded-2xl border border-gray-100 w-full md:w-80">
                 <Search size={16} className="text-gray-400" />
-                <input 
-                  placeholder="CARI NAMA ATAU EMAIL..." 
+                <input
+                  placeholder="CARI NAMA ATAU EMAIL..."
                   className="bg-transparent border-none outline-none text-[11px] font-black uppercase w-full placeholder:text-gray-300"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -166,7 +166,7 @@ export default function AdminMonitoring() {
                         </div>
                       </td>
                       <td className="py-5 px-2 text-right">
-                        <button 
+                        <button
                           onClick={() => handleUserClick(user.id)}
                           className="px-4 py-2 bg-gray-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all flex items-center gap-2 ml-auto shadow-sm"
                         >
@@ -190,20 +190,21 @@ export default function AdminMonitoring() {
             <button onClick={() => setSelectedUser(null)} className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-full">
               <X size={24} />
             </button>
-            
+
             <div className="text-center mb-10">
               <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-[32px] flex items-center justify-center mx-auto mb-5 shadow-lg">
                 <User size={48} />
               </div>
-              <h2 className="text-3xl font-black text-gray-800 uppercase italic leading-none">{selectedUser.name}</h2>
-              <p className="text-gray-400 text-[10px] font-black tracking-[0.3em] uppercase mt-2">{selectedUser.email}</p>
+              {/* ✅ FIX: Reduce font size and add truncate to prevent overflow */}
+              <h2 className="text-lg font-black text-gray-800 uppercase italic leading-tight truncate px-2">{selectedUser.name}</h2>
+              <p className="text-gray-400 text-[9px] font-black tracking-[0.2em] uppercase mt-2 truncate px-2">{selectedUser.email}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-5 mb-6">
               <div className="bg-gray-50 p-6 rounded-[32px] border border-gray-100 text-center">
                 <Trophy className="text-yellow-500 mx-auto mb-2" size={24} />
                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Ranking</p>
-                <h4 className="text-3xl font-black text-gray-800">#{selectedUser.ranking || '0'}</h4>
+                <h4 className="text-3xl font-black text-gray-800">{selectedUser.ranking ? `#${selectedUser.ranking}` : '-'}</h4>
               </div>
               <div className="bg-gray-50 p-6 rounded-[32px] border border-gray-100 text-center">
                 <Activity className="text-blue-500 mx-auto mb-2" size={24} />
@@ -221,14 +222,14 @@ export default function AdminMonitoring() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button 
+              <button
                 onClick={() => setSelectedUser(null)}
                 className="flex-1 py-5 bg-gray-900 text-white font-black rounded-3xl text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all"
               >
                 Kembali
               </button>
               {/* ✅ DELETE BUTTON */}
-              <button 
+              <button
                 onClick={handleDeleteUser}
                 disabled={deleting}
                 className="flex-1 py-5 bg-red-500 text-white font-black rounded-3xl text-[11px] uppercase tracking-[0.2em] hover:bg-red-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"

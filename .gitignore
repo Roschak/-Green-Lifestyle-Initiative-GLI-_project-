@@ -1,13 +1,55 @@
-# Abaikan library dan config di folder backend
+# ========== BACKEND ==========
 backend/node_modules/
 backend/.env
+backend/.env.local
+backend/.env.production
+backend/.vercel/
+backend/dist/
+backend/build/
 
-# Abaikan library di folder frontend (jika nanti ada)
+# ========== FRONTEND ==========
 frontend/node_modules/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/dist/
+frontend/build/
 
-# File sampah sistem
-.DS_Store
-Thumbs.db
-
-# private key untuk service account (jangan pernah di-commit ke repositori)
+# ========== FIREBASE & CREDENTIALS ==========
+# Private keys dan API credentials
 serviceAccountKey.json
+*-credentials.json
+firebase-key.json
+*.pem
+*.key
+
+# ========== CLOUDINARY & THIRD PARTY KEYS ==========
+.cloudinary*
+
+# ========== VERCEL & DEPLOYMENT ==========
+.vercel/
+.vercelignore
+
+# ========== SYSTEM FILES ==========
+.DS_Store
+.env
+.env.*
+Thumbs.db
+.vscode/settings.json
+
+# ========== IDE & EDITOR ==========
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ========== LOGS ==========
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========== OS SPECIFIC ==========
+.AppleDouble
+.LSOverride

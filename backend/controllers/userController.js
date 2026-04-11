@@ -162,7 +162,8 @@ exports.getUserStats = async (req, res) => {
 
 /**
  * Get User Profile - Ambil profil lengkap user dengan ranking
- * Hitung ranking user berdasarkan monthly_points (menang terhadap berapa user)
+ * ✅ FIXED: Ranking hanya untuk user dengan actions/points > 0
+ * User tanpa aksi tidak dapat ranking (ranking = null)
  */
 exports.getUserProfile = async (req, res) => {
     try {
@@ -185,11 +186,29 @@ exports.getUserProfile = async (req, res) => {
         const rejected = actions.filter(a => a.status === 'rejected').length;
         const pending = actions.filter(a => a.status === 'pending').length;
 
-        // Hitung ranking: berapa banyak user dengan monthly_points lebih tinggi
-        const rankSnap = await db.collection('users')
-            .where('role', '==', 'user')
-            .where('monthly_points', '>', user.monthly_points || 0)
-            .get();
+        // ✅ FIXED: Ranking hanya jika user punya actions atau points > 0
+        let ranking = null;
+        if (actions.length > 0 || (user.monthly_points || 0) > 0) {
+            try {
+                const rankSnap = await db.collection('users')
+                    .where('role', '==', 'user')
+                    .where('monthly_points', '>', user.monthly_points || 0)
+                    .get();
+                ranking = rankSnap.size + 1;
+            } catch (indexErr) {
+                // Fallback tanpa index
+                const allUsersSnap = await db.collection('users')
+                    .where('role', '==', 'user')
+                    .get();
+                let betterCount = 0;
+                allUsersSnap.forEach(doc => {
+                    if ((doc.data().monthly_points || 0) > (user.monthly_points || 0)) {
+                        betterCount++;
+                    }
+                });
+                ranking = betterCount + 1;
+            }
+        }
 
         return res.json({
             id,
@@ -199,7 +218,7 @@ exports.getUserProfile = async (req, res) => {
             monthlyPoints: user.monthly_points || 0,
             level: user.level || 'Eco-Newbie',
             medals: user.medal ? user.medal.split(',').map(m => m.trim()) : [],
-            ranking: rankSnap.size + 1,
+            ranking: ranking,  // null jika tidak ada actions
             approved,
             rejected,
             pending
@@ -292,7 +311,7 @@ exports.getPublicLeaderboard = async (req, res) => {
 exports.heartbeat = async (req, res) => {
     try {
         const userId = req.user?.id;
-        
+
         if (!userId) {
             return res.status(401).json({ success: false, message: 'User tidak teridentifikasi' });
         }
