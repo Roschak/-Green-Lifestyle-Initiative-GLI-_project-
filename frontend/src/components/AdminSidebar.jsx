@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Shield, Users, LogOut, Mail, BadgeCheck, X, CheckCircle, XCircle, Clock, User, CalendarDays } from 'lucide-react'
+import { LayoutDashboard, Shield, Users, LogOut, Mail, BadgeCheck, X, CheckCircle, XCircle, Clock, User, CalendarDays, FileText } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 
 export default function AdminSidebar() {
-  const navigate  = useNavigate()
-  const location  = useLocation()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuth()
-  const [showPopup, setShowPopup]   = useState(false)
+  const [showPopup, setShowPopup] = useState(false)
   const [adminStats, setAdminStats] = useState(null)
-  const [loading, setLoading]       = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (showPopup && !adminStats) {
@@ -35,11 +35,12 @@ export default function AdminSidebar() {
   }
 
   const navItems = [
-    { path: '/admin/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-    { path: '/admin/moderasi',   label: 'Moderasi',   icon: Shield },
+    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/admin/moderasi', label: 'Moderasi', icon: Shield },
     { path: '/admin/monitoring', label: 'Monitoring', icon: Users },
-    { path: '/admin/event',      label: 'Event',      icon: CalendarDays },
-    { path: '/admin/profil',     label: 'Profil',     icon: User },
+    { path: '/admin/event', label: 'Event', icon: CalendarDays },
+    { path: '/admin/artikel', label: 'Artikel', icon: FileText },
+    { path: '/admin/profil', label: 'Profil', icon: User },
   ]
 
   return (

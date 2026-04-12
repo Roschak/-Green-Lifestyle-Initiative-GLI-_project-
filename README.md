@@ -65,6 +65,13 @@ ________________________________________
 •	Medal Configuration: Atur medali untuk event
 •	Event Leaderboard: Lihat ranking peserta per event
 •	Registration Management: Terima/tolak registrasi peserta
+
+**Article Management** ✨ NEW
+•	Article CRUD: Buat, edit, dan hapus artikel
+•	Status Control: Publish atau draft artikel
+•	Featured Articles: Tandai artikel sebagai unggulan
+•	Category Management: Kelompokkan artikel per kategori (Tips, Berita, Edukasi, Event)
+•	Admin Panel: Interface lengkap untuk mengelola semua artikel
 ________________________________________
 🛠️ Arsitektur Teknologi (Tech Stack)
 | Layer | Teknologi | Deskripsi |
@@ -93,14 +100,16 @@ GLI-Project-Web/
 │   │   ├── authController.js     # Login, Register, OAuth
 │   │   ├── userController.js     # Profile, actions, leaderboard
 │   │   ├── adminController.js    # Dashboard, verification, stats
-│   │   └── eventController.js    # Event management ✨ NEW
+│   │   ├── eventController.js    # Event management ✨ NEW
+│   │   └── articleController.js  # Article management ✨ NEW
 │   ├── middleware/
 │   │   └── authMiddleware.js     # JWT verification & role checking
 │   ├── routes/
 │   │   ├── authRoutes.js         # /api/auth/* endpoints
 │   │   ├── userRoutes.js         # /api/user/* endpoints
 │   │   ├── adminRoutes.js        # /api/admin/* endpoints
-│   │   └── eventRoutes.js        # /api/events/* endpoints ✨ NEW
+│   │   ├── eventRoutes.js        # /api/events/* endpoints ✨ NEW
+│   │   └── articleRoutes.js      # /api/articles/* endpoints ✨ NEW
 │   ├── .env                      # Environment variables
 │   ├── .env.example              # Template untuk .env
 │   ├── serviceAccountKey.json    # Firebase service account
@@ -128,6 +137,7 @@ GLI-Project-Web/
 │   │   │       ├── AdminMonitoring.jsx
 │   │   │       ├── AdminModerasi.jsx
 │   │   │       ├── AdminEvent.jsx             # ✨ NEW
+│   │   │       ├── AdminArticle.jsx           # ✨ NEW
 │   │   │       ├── AdminAttendance.jsx        # ✨ NEW
 │   │   │       └── AdminProfil.jsx
 │   │   ├── services/
@@ -179,6 +189,14 @@ ________________________________________
 - id, mentor_id, user_id
 - status (active/ended)
 - created_at, ended_at
+
+### Collection: `articles` ✨ NEW
+- id, title, description, content
+- category (tips/berita/edukasi/event)
+- image, thumbnail, featured (boolean)
+- status (published/draft)
+- author_id, author_name
+- views, created_at, updated_at
 ________________________________________
 🛰️ API Endpoints (Dokumentasi)
 
@@ -217,6 +235,15 @@ ________________________________________
 - GET /events/:id/registrations
 - POST /events/:id/proof
 - GET /events/:id/leaderboard
+
+### Articles ✨ NEW (`/api/articles/*`)
+- GET /articles (public)
+- GET /articles/:id (public)
+- GET /admin/articles (admin only)
+- POST /articles (admin only)
+- PUT /articles/:id (admin only)
+- DELETE /articles/:id (admin only)
+- PUT /articles/:id/status (admin only)
 ________________________________________
 ⚙️ Panduan Instalasi
 
