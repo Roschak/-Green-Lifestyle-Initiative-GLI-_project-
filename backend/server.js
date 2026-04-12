@@ -63,7 +63,17 @@ app.use('/api', articleRoutes);
 
 // ✅ HEALTH CHECK
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: '🚀 Backend is running' });
+  const response = {
+    status: 'OK',
+    message: 'Backend is running',
+    timestamp: new Date().toISOString(),
+    env: {
+      PORT: process.env.PORT,
+      NODE_ENV: process.env.NODE_ENV,
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'SET' : 'NOT SET'
+    }
+  };
+  res.json(response);
 });
 
 // ✅ 404 HANDLER
@@ -92,5 +102,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on http://localhost:${PORT}`);
   console.log(`✅ Firebase initialized`);
-  console.log(`✅ CORS enabled for development`);
+  console.log(`✅ CORS enabled`);
+  console.log(`📝 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📝 Firebase Project ID: ${process.env.FIREBASE_PROJECT_ID || 'NOT SET'}`);
 });
