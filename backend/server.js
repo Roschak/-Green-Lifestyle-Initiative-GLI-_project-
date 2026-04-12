@@ -127,9 +127,16 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${PORT}`);
-  console.log(`✅ CORS enabled`);
-  console.log(`📝 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📝 Firebase Project ID: ${process.env.FIREBASE_PROJECT_ID || 'NOT SET'}`);
-});
+
+// Only listen in development/localhost
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend running on http://localhost:${PORT}`);
+    console.log(`✅ CORS enabled`);
+    console.log(`📝 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📝 Firebase Project ID: ${process.env.FIREBASE_PROJECT_ID || 'NOT SET'}`);
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
