@@ -41,14 +41,14 @@ export default function UserProfil() {
   const [editingName, setEditingName] = useState(false)
   const [newName, setNewName] = useState('')
   const [uploading, setUploading] = useState(false)
-  
+
   const handleLogout = () => { logout(); navigate('/login') }
   const getInit = (name) => name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'BS'
 
   // ✅ Fetch real user profile data from API
   useEffect(() => {
     if (!user?.id) return
-    
+
     const fetchProfile = async () => {
       try {
         const res = await api.get(`/user/profile/${user.id}`)
@@ -66,7 +66,7 @@ export default function UserProfil() {
         setLoading(false)
       }
     }
-    
+
     fetchProfile()
   }, [user?.id])
 
@@ -119,7 +119,7 @@ export default function UserProfil() {
   if (loading) {
     return (
       <div className="flex min-h-screen" style={{ background: BG }}>
-        <UserSidebar/>
+        <UserSidebar />
         <main className="flex-1 p-8 flex items-center justify-center">
           <div className="text-white">Loading profile...</div>
         </main>
@@ -127,27 +127,27 @@ export default function UserProfil() {
     )
   }
 
-  // ✅ Parse medals from profile.medal string
-  const userMedals = profile?.medal
-    ? profile.medal.split(', ').filter(m => m.trim())
+  // ✅ Parse medals from profile.medals array (from API)
+  const userMedals = profile?.medals && Array.isArray(profile.medals)
+    ? profile.medals.filter(m => m && m.trim())
     : []
 
   const medalConfig = {
-    'PAHLAWAN ENERGI': {icon:'⚡', bg:'linear-gradient(135deg,#fbbf24,#f59e0b)'},
-    'HEMAT AIR': {icon:'💧', bg:'linear-gradient(135deg,#60a5fa,#3b82f6)'},
-    'DAUR ULANG': {icon:'♻️', bg:'linear-gradient(135deg,#4ade80,#22c55e)'},
-    'PENANAM POHON': {icon:'🌲', bg:'linear-gradient(135deg,#22c55e,#15803d)'},
-    'PIONIR HIJAU': {icon:'trophy', bg:'rgba(255,255,255,0.12)'},
-    'AKTIVIS ELITE': {icon:'star', bg:'rgba(255,255,255,0.12)'},
+    'PAHLAWAN ENERGI': { icon: '⚡', bg: 'linear-gradient(135deg,#fbbf24,#f59e0b)' },
+    'HEMAT AIR': { icon: '💧', bg: 'linear-gradient(135deg,#60a5fa,#3b82f6)' },
+    'DAUR ULANG': { icon: '♻️', bg: 'linear-gradient(135deg,#4ade80,#22c55e)' },
+    'PENANAM POHON': { icon: '🌲', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
+    'PIONIR HIJAU': { icon: 'trophy', bg: 'rgba(255,255,255,0.12)' },
+    'AKTIVIS ELITE': { icon: 'star', bg: 'rgba(255,255,255,0.12)' },
   }
 
-  const displayMedals = userMedals.length > 0 
+  const displayMedals = userMedals.length > 0
     ? userMedals.map(name => ({
-        label: name,
-        icon: medalConfig[name]?.icon || '🏅',
-        bg: medalConfig[name]?.bg || 'rgba(255,255,255,0.12)',
-        locked: false
-      }))
+      label: name,
+      icon: medalConfig[name]?.icon || '🏅',
+      bg: medalConfig[name]?.bg || 'rgba(255,255,255,0.12)',
+      locked: false
+    }))
     : medals
 
   return (
@@ -171,7 +171,7 @@ export default function UserProfil() {
               <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} className="hidden" />
             </label>
           </div>
-          
+
           {/* Name edit */}
           <div className="flex items-center justify-center gap-2 mb-1">
             {editingName ? (
@@ -208,8 +208,8 @@ export default function UserProfil() {
           </div>
           <div className="bg-white rounded-2xl px-6 py-5 text-center">
             <div className="text-xs uppercase tracking-wider text-gray-400 font-extrabold mb-2">AKSI</div>
-            {/* ✅ Show real action count from profile */}
-            <div className="text-3xl font-black text-green-400">{profile?.total_actions || 0}</div>
+            {/* ✅ Show approved actions count from profile */}
+            <div className="text-3xl font-black text-green-400">{profile?.approved || 0}</div>
           </div>
         </div>
 

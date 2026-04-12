@@ -54,10 +54,10 @@ const getTimeRemaining = (deadline) => {
 
 export default function UserEvent() {
   const { user } = useAuth()
-  const [myEvents, setMyEvents] = useState({ roundown: [], dilaksanakan: [], berakhir: [] })
+  const [myEvents, setMyEvents] = useState({ board: [] })
   const [myRegs, setMyRegs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('event') // 'event' | 'ikuti'
+  const [activeTab, setActiveTab] = useState('board') // 'board' | 'ikuti'
   const [createModal, setCreateModal] = useState(false)
   const [regModal, setRegModal] = useState(null)
   const [registrations, setRegistrations] = useState([])
@@ -92,7 +92,7 @@ export default function UserEvent() {
       })
       setCountdown(newCountdown)
     }, 1000)
-    
+
     return () => clearInterval(timer)
   }, [myEvents])
 
@@ -100,19 +100,15 @@ export default function UserEvent() {
     setLoading(true)
     try {
       console.log('🔍 User fetchAll: user.id =', user.id)
-      const [evRes, regRes] = await Promise.all([
-        api.get(`/events/host/${user.id}`),
-        api.get(`/events/my/${user.id}`),
+      const [allRes, regRes] = await Promise.all([
+        api.get(`/events`),  // Get ALL events available
+        api.get(`/events/my/${user.id}`),  // Get events user joined
       ])
-      console.log('📌 ✅ evRes.data (my events):', evRes.data)
+      console.log('📌 ✅ allRes.data (all events):', allRes.data)
       console.log('📌 ✅ regRes.data (my registrations):', regRes.data)
-      console.log('📌 myEvents structure:', {
-        roundown: (evRes.data?.roundown || []).length,
-        dilaksanakan: (evRes.data?.dilaksanakan || []).length,
-        berakhir: (evRes.data?.berakhir || []).length,
-      })
-      const data = evRes.data || {}
-      setMyEvents(data)
+
+      // For tab display - show all events as "board"
+      setMyEvents({ board: (allRes.data || []) })
       setMyRegs(regRes.data || [])
     } catch (err) {
       console.error('❌ Gagal fetch:', err)
@@ -199,7 +195,7 @@ export default function UserEvent() {
 
         {/* TAB */}
         <div className="px-8 pt-6 flex gap-3">
-          {[{ key: 'event', label: 'Event Saya' }, { key: 'ikuti', label: 'Event Diikuti' }].map(t => (
+          {[{ key: 'board', label: 'Temukan Event' }, { key: 'ikuti', label: 'Event Diikuti' }].map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition ${activeTab === t.key ? 'bg-white text-green-800' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}>
               {t.label}
@@ -210,7 +206,7 @@ export default function UserEvent() {
         <div className="p-8 max-w-6xl mx-auto">
           {loading ? (
             <div className="py-20 text-center text-white font-bold animate-pulse uppercase tracking-widest">Memuat...</div>
-          ) : activeTab === 'event' ? (
+          ) : activeTab === 'board' ? (
             // ===== TAB EVENT SAYA =====
             sections.map(sec => (
               <div key={sec.key} className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 mb-8">
@@ -247,18 +243,17 @@ export default function UserEvent() {
                           <div className="flex items-center gap-2 text-gray-400 text-[10px] mb-3">
                             <Users size={10} /> {event.total_registered} terdaftar
                           </div>
-                          
+
                           {/* ✅ Countdown Timer */}
                           {event.status === 'roundown' && countdown[event.id] && (
-                            <div className={`text-[10px] font-black mb-3 px-2 py-1 rounded-lg text-center ${
-                              countdown[event.id].expired 
-                                ? 'bg-red-100 text-red-700' 
+                            <div className={`text-[10px] font-black mb-3 px-2 py-1 rounded-lg text-center ${countdown[event.id].expired
+                                ? 'bg-red-100 text-red-700'
                                 : 'bg-yellow-100 text-yellow-700'
-                            }`}>
+                              }`}>
                               {countdown[event.id].expired ? '⏱️ Pendaftaran Ditutup' : `⏱️ ${countdown[event.id].text}`}
                             </div>
                           )}
-                          
+
                           <div className="flex gap-2">
                             <button onClick={() => { setRegModal(event); fetchRegistrations(event.id) }}
                               className="flex-1 py-2 bg-green-50 text-green-700 text-[10px] font-black rounded-xl hover:bg-green-100 transition">

@@ -7,8 +7,8 @@ import { Trophy, Medal, Star, User as UserIcon } from 'lucide-react'
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 const medals = ['🥇', '🥈', '🥉']
 
-const getInitials = (name) => 
-  name ? name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase() : '??'
+const getInitials = (name) =>
+  name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '??'
 
 export default function UserPeringkat() {
   const { user: currentUser } = useAuth()
@@ -22,7 +22,7 @@ export default function UserPeringkat() {
     try {
       // ✅ Use public leaderboard endpoint (no admin required)
       const res = await getPublicLeaderboard()
-      const apiData = res.data?.data || []
+      const apiData = res.data?.data || res.data || []
       setPeriod(res.data?.period || 'Season Baru')
 
       const mapped = apiData.map((u) => ({
@@ -32,12 +32,13 @@ export default function UserPeringkat() {
         initials: getInitials(u.name),
         aksi: u.total_actions || 0,
         poin: u.points || 0,
-        isMe: u.id === currentUser?.uid
+        isMe: u.id === currentUser?.id  // ✅ FIXED: use .id not .uid
       }))
 
       setLeaderboard(mapped)
     } catch (err) {
       console.error('❌ Error fetching leaderboard:', err)
+      setLeaderboard([])
     } finally {
       setLoading(false)
     }
@@ -47,7 +48,7 @@ export default function UserPeringkat() {
     <div className="flex min-h-screen" style={{ background: BG }}>
       <UserSidebar />
       <main className="flex-1 overflow-y-auto p-6 md:p-10">
-        
+
         {/* HEADER SECTION */}
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -64,7 +65,7 @@ export default function UserPeringkat() {
 
         {loading ? (
           <div className="flex flex-col gap-3 animate-pulse">
-            {[1,2,3,4,5].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="h-20 bg-white/5 rounded-2xl w-full" />
             ))}
           </div>
@@ -83,25 +84,23 @@ export default function UserPeringkat() {
           <div className="flex flex-col gap-3">
             {leaderboard.map((item) => {
               const isTop3 = item.rank <= 3
-              
+
               return (
-                <div 
+                <div
                   key={item.id}
-                  className={`relative flex items-center justify-between p-5 rounded-[28px] transition-all border ${
-                    item.isMe ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.2)]' : 'border-white/5'
-                  }`}
-                  style={{ 
-                    background: isTop3 
-                      ? 'rgba(255, 255, 255, 0.95)' 
+                  className={`relative flex items-center justify-between p-5 rounded-[28px] transition-all border ${item.isMe ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.2)]' : 'border-white/5'
+                    }`}
+                  style={{
+                    background: isTop3
+                      ? 'rgba(255, 255, 255, 0.95)'
                       : 'rgba(255, 255, 255, 0.05)',
                     backdropBlur: '10px'
                   }}
                 >
                   {/* RANK INDICATOR */}
                   <div className="flex items-center gap-5">
-                    <div className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xl ${
-                      isTop3 ? 'bg-green-100 text-green-800' : 'text-white/20'
-                    }`}>
+                    <div className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xl ${isTop3 ? 'bg-green-100 text-green-800' : 'text-white/20'
+                      }`}>
                       {isTop3 ? medals[item.rank - 1] : `#${item.rank}`}
                     </div>
 

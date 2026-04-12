@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import UserSidebar from '../../components/UserSidebar'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
-import { Send, MapPin, Image as ImageIcon, CheckCircle, Loader2 } from 'lucide-react'
+import { Send, Image as ImageIcon, CheckCircle, Loader2 } from 'lucide-react'
 
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 
@@ -105,13 +105,11 @@ export default function UserAksi() {
             </div>
 
             <div>
-              <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">Lokasi</label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-4 text-gray-400" size={20} />
-                <input required className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 pl-12 focus:border-green-400 outline-none transition-all"
-                  placeholder="Lokasi Aksi"
-                  onChange={e => setFormData({ ...formData, location: e.target.value })} />
-              </div>
+              <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">Lokasi Aksi</label>
+              <input className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-green-400 outline-none transition-all"
+                placeholder="Contoh: Jakarta Pusat, Bandung, dll"
+                value={formData.location}
+                onChange={e => setFormData({ ...formData, location: e.target.value })} />
             </div>
 
             <div onClick={() => fileInputRef.current.click()} className="group border-2 border-dashed border-gray-200 rounded-3xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all">

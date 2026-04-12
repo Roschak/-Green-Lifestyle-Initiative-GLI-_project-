@@ -24,9 +24,19 @@ export default function UserDashboard() {
     const fetchUserStats = async () => {
       try {
         const res = await api.get(`/user/stats/${user?.id}`)
-        setUserStats(res.data)
+        // ✅ FIXED: Ensure all fields exist with defaults
+        setUserStats({
+          totalPoints: res.data?.totalPoints || 0,
+          totalActions: res.data?.totalActions || 0,
+          approved: res.data?.approved || 0,
+          pending: res.data?.pending || 0,
+          rejected: res.data?.rejected || 0
+        })
+        console.log('✅ User stats loaded:', res.data)
       } catch (err) {
-        console.error("Gagal ambil stats user:", err)
+        console.error("❌ Gagal ambil stats user:", err)
+        // Set defaults on error
+        setUserStats({ totalPoints: 0, totalActions: 0, approved: 0, pending: 0, rejected: 0 })
       }
     }
 

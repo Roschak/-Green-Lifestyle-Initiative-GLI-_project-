@@ -51,13 +51,19 @@ export default function UserRiwayat() {
       const userId = user?.id
       if (!userId) {
         console.log('No user ID available')
+        setActions([])
+        setLoading(false)
         return
       }
 
       const res = await api.get(`/user/actions/${userId}`)
-      setActions(res.data)
+      // ✅ FIXED: Ensure data is array
+      const data = Array.isArray(res.data) ? res.data : []
+      setActions(data)
+      console.log('✅ Actions fetched:', data.length)
     } catch (err) {
-      console.error('Fetch error:', err)
+      console.error('❌ Fetch error:', err)
+      setActions([])
     } finally {
       setLoading(false)
     }

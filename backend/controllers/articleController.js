@@ -25,11 +25,15 @@ exports.createArticle = async (req, res) => {
       author_id: userId,
       author_name: userName,
       image: req.file ? req.file.secure_url : '/images/default-article.png',
-      thumbnail: req.file ? req.file.secure_url : null,
       views: 0,
       created_at: new Date(),
       updated_at: new Date()
     };
+
+    // Only add thumbnail if file is uploaded
+    if (req.file) {
+      article.thumbnail = req.file.secure_url;
+    }
 
     // Add to Firestore
     const docRef = await db.collection('articles').add(article);

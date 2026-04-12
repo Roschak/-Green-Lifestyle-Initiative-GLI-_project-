@@ -2,9 +2,9 @@
 const multer = require('multer');
 
 // Check if Cloudinary is configured
-const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME && 
-                      process.env.CLOUDINARY_API_KEY && 
-                      process.env.CLOUDINARY_API_SECRET;
+const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET;
 
 let upload;
 
@@ -15,9 +15,9 @@ if (hasCloudinary) {
 
     // Configure Cloudinary
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,    
-      api_key: process.env.CLOUDINARY_API_KEY,          
-      api_secret: process.env.CLOUDINARY_API_SECRET     
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
     });
 
     console.log('✅ Cloudinary configured');
@@ -32,7 +32,7 @@ if (hasCloudinary) {
       }
     });
 
-    upload = multer({ 
+    upload = multer({
       storage: storage,
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
       fileFilter: (req, file, cb) => {
@@ -47,11 +47,13 @@ if (hasCloudinary) {
   } catch (err) {
     console.error('❌ Cloudinary error:', err.message);
     console.log('⚠️ Falling back to memory storage');
+    // Fall back to memory storage
     upload = multer({ storage: multer.memoryStorage() });
   }
 } else {
   console.log('⚠️ Cloudinary not configured, using memory storage for uploads');
-  upload = multer({ 
+  // Use memory storage if Cloudinary is not configured
+  upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }
   });

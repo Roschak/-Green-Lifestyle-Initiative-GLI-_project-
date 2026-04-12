@@ -30,12 +30,14 @@ ________________________________________
 •	Event Attendance Tracking: Upload bukti kehadiran dengan foto
 •	Auto Medal Award: Medali otomatis saat menyelesaikan event
 •	Event Leaderboard: Ranking peserta per event
+•	📍 Location Picker: Pilih lokasi event dari peta interaktif dengan GPS
 
-**Mentoring System** ✨ NEW
-•	Online Mentors: Daftar mentor yang sedang aktif online
-•	Real-time Chat: Hubungi mentor untuk diskusi langsung
-•	Auto Offline Detection: Status mentor berubah offline jika idle >5 menit
-•	Chat History: Riwayat percakapan tersimpan
+**Action Reporting** ✨ MAP PICKER
+•	Action Submission: Form pelaporan aksi dengan integrasi unggah foto bukti
+•	📍 Location Picker: Klik peta atau gunakan "Lokasi Saya" untuk GPS
+•	Simpan koordinat GPS untuk tracking lokasi aksi
+•	Riwayat Aksi: Tracking status aksi (Pending/Approved/Rejected)
+•	Real-time Notification: Mengetahui status aksi (Approved/Rejected) secara instan
 
 🛡️ Admin Side (The Control Center)
 **Monitoring & Analytics**
@@ -72,6 +74,12 @@ ________________________________________
 •	Featured Articles: Tandai artikel sebagai unggulan
 •	Category Management: Kelompokkan artikel per kategori (Tips, Berita, Edukasi, Event)
 •	Admin Panel: Interface lengkap untuk mengelola semua artikel
+
+**Location Tracking** ✨ NEW (MAP PICKER)
+•	Event Location: Admin pilih lokasi event dari peta interaktif
+•	Action Location: User pilih lokasi aksi dari peta dengan GPS
+•	GPS Integration: "Lokasi Saya" untuk auto-detect koordinat user
+•	Coordinate Storage: Simpan latitude/longitude di Firestore
 ________________________________________
 🛠️ Arsitektur Teknologi (Tech Stack)
 | Layer | Teknologi | Deskripsi |
@@ -163,8 +171,19 @@ ________________________________________
 - status (online/offline), last_activity
 - created_at, updated_at
 
+### Collection: `events` ✨ NEW
+- id, title, description, location
+- latitude, longitude (GPS coordinates from map picker) ✨ NEW
+- medal_name, host_id, host_role
+- thumbnail, thumbnail_type, thumbnail_text, thumbnail_color
+- registration_start, registration_end
+- event_start, event_end
+- status (upcoming/ongoing/ended)
+- wa_link, created_at
+
 ### Collection: `actions`
 - id, user_id, action_name, description
+- location, latitude, longitude (GPS from map picker) ✨ NEW
 - photo_url, created_at
 - status (pending/approved/rejected)
 - points_earned, admin_note, rejection_reason

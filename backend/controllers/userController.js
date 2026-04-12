@@ -2,6 +2,7 @@
 // Handles user-related operations: action reporting, stats retrieval, profile data
 const db = require('../config/db');
 const admin = require('firebase-admin');
+// TODO: Firebase Storage upload to be implemented later
 
 /**
  * Create Action - Endpoint untuk user submit aksi hijau baru
@@ -11,62 +12,44 @@ const admin = require('firebase-admin');
  */
 exports.createAction = async (req, res) => {
     try {
-        const { user_id, action_name, description, location, latitude, longitude } = req.body;
+        console.log('🎬 [createAction] START');
+        
+        const { user_id, action_name, description, location } = req.body;
         let imageUrl = null;
-
-        console.log('📥 Received action data:', { user_id, action_name, location, latitude, longitude });
 
         // Validasi required fields
         if (!user_id || !action_name) {
-            console.error('❌ Missing required fields: user_id or action_name');
+            console.error('❌ Missing required fields');
             return res.status(400).json({ success: false, message: 'User ID dan nama aksi wajib' });
         }
 
-        // Upload file jika ada
-        if (req.file) {
-            imageUrl = req.file.path;
-            console.log('✅ Image uploaded:', imageUrl);
-        }
+        // TODO: Upload ke Firebase Storage di masa depan
+        // For now, skip image upload to avoid errors
+        console.log('ℹ️ Image upload disabled for stability');
 
-        // Parse lat/lng safely - handle null, "null", undefined
-        let lat = null;
-        let lng = null;
-        
-        try {
-            if (latitude && latitude !== 'null' && latitude !== undefined && latitude !== '') {
-                lat = parseFloat(latitude);
-                if (isNaN(lat)) lat = null;
-            }
-            if (longitude && longitude !== 'null' && longitude !== undefined && longitude !== '') {
-                lng = parseFloat(longitude);
-                if (isNaN(lng)) lng = null;
-            }
-        } catch (parseErr) {
-            console.warn('⚠️ Error parsing coordinates:', parseErr);
-            lat = null;
-            lng = null;
-        }
-
-        console.log('📍 Parsed coordinates:', { lat, lng });
-
-        // Simpan action dengan status pending untuk admin review
-        const docRef = await db.collection('actions').add({
+        // Build data object - only include defined values
+        const actionData = {
             user_id,
             action_name,
             description: description || '',
             location: location || '',
-            latitude: lat,
-            longitude: lng,
-            img: imageUrl,
             status: 'pending',  // Belum approved admin
             points_earned: 0,   // Akan diisi admin
             admin_note: '',
             rejection_reason: '',  // Jika di-reject
             created_at: admin.firestore.FieldValue.serverTimestamp(),
             updated_at: admin.firestore.FieldValue.serverTimestamp()
-        });
+        };
 
-        console.log('✅ Action created:', docRef.id);
+        // Only add image if uploaded
+        if (imageUrl) {
+            actionData.img = imageUrl;
+        }
+
+        // Simpan action dengan status pending untuk admin review
+        const docRef = await db.collection('actions').add(actionData);
+
+        console.log('✅ [createAction] SUCCESS - Action created:', docRef.id);
 
         return res.status(201).json({
             success: true,
@@ -75,8 +58,9 @@ exports.createAction = async (req, res) => {
         });
 
     } catch (err) {
-        console.error('❌ Create Action Error:', err);
-        console.error('❌ Error details:', err.message, err.stack);
+        console.error('❌ [createAction] FAILED - Error:', err.message);
+        console.error('❌ [createAction] Error stack:', err.stack);
+        console.error('❌ [createAction] Full error:', err);
         return res.status(500).json({ 
             success: false, 
             message: 'Gagal membuat aksi',
@@ -178,7 +162,7 @@ exports.getUserStats = async (req, res) => {
         const rejected = actions.filter(a => a.status === 'rejected').length;
 
         return res.json({
-            totalPoints: user.points || 0,  // Total poin dari semua aksi approved
+            totalPoints: user.monthly_points || 0,  // Total poin dari semua aksi approved bulan ini
             totalActions: actions.length,   // Total submission (all statuses)
             approved,   // Count aksi approved
             pending,    // Count aksi pending review

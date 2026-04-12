@@ -38,7 +38,7 @@ const calculateEventStatus = (eventData) => {
 exports.createEvent = async (req, res) => {
     try {
         const {
-            title, description, location, latitude, longitude, wa_link, medal_name,
+            title, description, location, wa_link, medal_name,
             registration_start, registration_end, event_start, event_end,
             thumbnail_type, thumbnail_text, thumbnail_color
         } = req.body;
@@ -78,15 +78,12 @@ exports.createEvent = async (req, res) => {
         }
 
         // Simpan event ke Firestore dengan approval_status = pending
-        const docRef = await db.collection('events').add({
+        const eventData = {
             title: title.trim(),
             description: description.trim(),
             location: location.trim(),
-            latitude: latitude ? parseFloat(latitude) : null,
-            longitude: longitude ? parseFloat(longitude) : null,
             wa_link: wa_link || '',
             medal_name: medal_name || 'Medali Sosialisasi',
-            thumbnail: thumbnailUrl,
             thumbnail_type: thumbnail_type || 'image',
             thumbnail_text: thumbnail_text || '',
             thumbnail_color: thumbnail_color || '#22c55e',
@@ -101,7 +98,14 @@ exports.createEvent = async (req, res) => {
             event_start: evStart,
             event_end: evEnd,
             created_at: admin.firestore.FieldValue.serverTimestamp()
-        });
+        };
+
+        // Only add thumbnail if uploaded
+        if (thumbnailUrl) {
+            eventData.thumbnail = thumbnailUrl;
+        }
+
+        const docRef = await db.collection('events').add(eventData);
 
         console.log('📝 Event dibuat (menunggu approval):', docRef.id);
 
@@ -131,7 +135,7 @@ exports.getAllEvents = async (req, res) => {
             if (data.registration_end?.toDate) data.registration_end = data.registration_end.toDate().toISOString();
             if (data.event_start?.toDate) data.event_start = data.event_start.toDate().toISOString();
             if (data.event_end?.toDate) data.event_end = data.event_end.toDate().toISOString();
-            
+
             // ✅ FIXED: Calculate status based on current time
             const dataForStatusCalc = {
                 registration_start: data.registration_start,
@@ -140,7 +144,7 @@ exports.getAllEvents = async (req, res) => {
                 event_end: data.event_end
             };
             data.status = calculateEventStatus(dataForStatusCalc);
-            
+
             events.push({ id: doc.id, ...data });
         });
 
@@ -164,7 +168,7 @@ exports.getAllEvents = async (req, res) => {
                     if (data.registration_end?.toDate) data.registration_end = data.registration_end.toDate().toISOString();
                     if (data.event_start?.toDate) data.event_start = data.event_start.toDate().toISOString();
                     if (data.event_end?.toDate) data.event_end = data.event_end.toDate().toISOString();
-                    
+
                     // ✅ FIXED: Calculate status based on current time
                     const dataForStatusCalc = {
                         registration_start: data.registration_start,
@@ -173,7 +177,7 @@ exports.getAllEvents = async (req, res) => {
                         event_end: data.event_end
                     };
                     data.status = calculateEventStatus(dataForStatusCalc);
-                    
+
                     events.push({ id: doc.id, ...data });
                 });
 

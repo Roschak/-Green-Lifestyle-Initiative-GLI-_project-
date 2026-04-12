@@ -35,7 +35,8 @@ if (!admin.apps.length) {
         }
 
         admin.initializeApp({
-            credential: credential
+            credential: credential,
+            ignoreUndefinedProperties: true
         });
 
         const project = process.env.FIREBASE_PROJECT_ID || 'unknown';

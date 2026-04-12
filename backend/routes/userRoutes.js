@@ -5,7 +5,26 @@ const userController = require('../controllers/userController');
 const upload = require('../config/multer');
 const { protect } = require('../middleware/authMiddleware');
 
-router.post('/actions', protect, upload.single('image'), userController.createAction);
+// ✅ Add error handling middleware for multer to not block requests
+const handleMulterError = (err, req, res, next) => {
+    if (err) {
+        console.error('⚠️ [Multer Error]', err.message);
+        // Continue anyway - image is optional
+        req.file = null;
+    }
+    next();
+};
+
+router.post('/actions', protect, (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+        if (err) {
+            console.warn('⚠️ [Multer] File upload error:', err.message);
+            req.file = null;  // Reset file, continue without image
+        }
+        next();
+    });
+}, userController.createAction);
+
 router.get('/stats/:id', protect, userController.getUserStats);
 router.get('/actions/:id', protect, userController.getUserActions);
 router.get('/profile/:id', protect, userController.getUserProfile);
