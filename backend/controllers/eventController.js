@@ -38,7 +38,7 @@ const calculateEventStatus = (eventData) => {
 exports.createEvent = async (req, res) => {
     try {
         const {
-            title, description, location, wa_link, medal_name,
+            title, description, location, latitude, longitude, wa_link, medal_name,
             registration_start, registration_end, event_start, event_end,
             thumbnail_type, thumbnail_text, thumbnail_color
         } = req.body;
@@ -82,6 +82,8 @@ exports.createEvent = async (req, res) => {
             title: title.trim(),
             description: description.trim(),
             location: location.trim(),
+            latitude: latitude ? parseFloat(latitude) : null,
+            longitude: longitude ? parseFloat(longitude) : null,
             wa_link: wa_link || '',
             medal_name: medal_name || 'Medali Sosialisasi',
             thumbnail: thumbnailUrl,

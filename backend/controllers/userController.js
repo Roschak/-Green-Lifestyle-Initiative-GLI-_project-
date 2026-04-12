@@ -11,11 +11,14 @@ const admin = require('firebase-admin');
  */
 exports.createAction = async (req, res) => {
     try {
-        const { user_id, action_name, description, location } = req.body;
+        const { user_id, action_name, description, location, latitude, longitude } = req.body;
         let imageUrl = null;
+
+        console.log('📥 Received action data:', { user_id, action_name, location, latitude, longitude });
 
         // Validasi required fields
         if (!user_id || !action_name) {
+            console.error('❌ Missing required fields: user_id or action_name');
             return res.status(400).json({ success: false, message: 'User ID dan nama aksi wajib' });
         }
 
@@ -25,12 +28,35 @@ exports.createAction = async (req, res) => {
             console.log('✅ Image uploaded:', imageUrl);
         }
 
+        // Parse lat/lng safely - handle null, "null", undefined
+        let lat = null;
+        let lng = null;
+        
+        try {
+            if (latitude && latitude !== 'null' && latitude !== undefined && latitude !== '') {
+                lat = parseFloat(latitude);
+                if (isNaN(lat)) lat = null;
+            }
+            if (longitude && longitude !== 'null' && longitude !== undefined && longitude !== '') {
+                lng = parseFloat(longitude);
+                if (isNaN(lng)) lng = null;
+            }
+        } catch (parseErr) {
+            console.warn('⚠️ Error parsing coordinates:', parseErr);
+            lat = null;
+            lng = null;
+        }
+
+        console.log('📍 Parsed coordinates:', { lat, lng });
+
         // Simpan action dengan status pending untuk admin review
         const docRef = await db.collection('actions').add({
             user_id,
             action_name,
             description: description || '',
             location: location || '',
+            latitude: lat,
+            longitude: lng,
             img: imageUrl,
             status: 'pending',  // Belum approved admin
             points_earned: 0,   // Akan diisi admin
@@ -50,7 +76,12 @@ exports.createAction = async (req, res) => {
 
     } catch (err) {
         console.error('❌ Create Action Error:', err);
-        return res.status(500).json({ success: false, message: err.message });
+        console.error('❌ Error details:', err.message, err.stack);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Gagal membuat aksi',
+            error: err.message 
+        });
     }
 };
 
@@ -245,18 +276,18 @@ exports.getPublicLeaderboard = async (req, res) => {
             .get();
 
         const users = [];
-        
+
         // Get all user-approved action counts for total_actions field
         const actionsSnap = await db.collection('actions')
             .where('status', '==', 'approved')
             .get();
-        
+
         const actionCounts = {};
         actionsSnap.forEach(doc => {
             const userId = doc.data().user_id;
             actionCounts[userId] = (actionCounts[userId] || 0) + 1;
         });
-        
+
         snap.forEach(doc => {
             const points = doc.data().monthly_points || 0;
             const userId = doc.id;
@@ -340,7 +371,7 @@ const awardMedalToUser = async (userId, medalName) => {
 
     try {
         const userDoc = await db.collection('users').doc(userId).get();
-        
+
         if (!userDoc.exists()) {
             console.error('❌ User not found:', userId);
             return false;
