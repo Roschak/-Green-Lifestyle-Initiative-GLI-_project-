@@ -1,18 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import AdminSidebar from '../../components/AdminSidebar'
+import MapLocationPicker from '../../components/MapLocationPicker'
 import { Plus, X, Calendar, Users, CheckCircle, XCircle, Upload, Eye, Bell, ExternalLink, Camera, MapPin } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
+const EVENT_DRAFT_KEY = 'gli_admin_event_draft'
 
 // Helper to get correct image URL
 const getImageUrl = (img) => {
   if (!img || img === 'no-image.jpg') return null
-  if (img.startsWith('http')) return img
+  if (String(img).startsWith('http')) return String(img)
+  const normalized = String(img).replace(/\\/g, '/')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}${img}`
+  const uploadsIndex = normalized.lastIndexOf('/uploads/')
+  if (uploadsIndex >= 0) return `${baseUrl}${normalized.slice(uploadsIndex)}`
+  if (normalized.startsWith('uploads/')) return `${baseUrl}/${normalized}`
+  return `${baseUrl}/${normalized.replace(/^\/+/, '')}`
 }
 
 const STATUS_LABEL = {
@@ -45,6 +51,8 @@ export default function AdminEvent() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('board')  // board | myevent
   const [createModal, setCreateModal] = useState(false)
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [mapModalKey, setMapModalKey] = useState(0)
   const [detailModal, setDetailModal] = useState(null)
   const [regModal, setRegModal] = useState(null)
   const [registrations, setRegistrations] = useState([])
@@ -54,13 +62,28 @@ export default function AdminEvent() {
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({
-    title: '', description: '', wa_link: '', location: '', medal_name: 'Medali Sosialisasi',
+    title: '', description: '', wa_link: '', location: '', latitude: null, longitude: null, medal_name: 'Medali Sosialisasi',
     thumbnail_type: 'image', thumbnail_text: '', thumbnail_color: '#22c55e',
     registration_start: '', registration_end: '', event_start: '', event_end: ''
   })
   const [thumbFile, setThumbFile] = useState(null)
   const [thumbPreview, setThumbPreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(EVENT_DRAFT_KEY)
+    if (savedDraft) {
+      try {
+        setForm(prev => ({ ...prev, ...JSON.parse(savedDraft) }))
+      } catch (err) {
+        console.warn('Admin event draft tidak valid:', err)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(EVENT_DRAFT_KEY, JSON.stringify(form))
+  }, [form])
 
   useEffect(() => { fetchAll() }, [])
 
@@ -69,7 +92,7 @@ export default function AdminEvent() {
     try {
       console.log('🔍 Admin fetchAll: user.id =', user.id)
       const [allRes, myRes] = await Promise.all([
-        api.get('/events'),
+        api.get('/events?visibility=active'),
         api.get(`/events/host/${user.id}`),
       ])
       console.log('📌 ✅ allRes.data (all events):', allRes.data)
@@ -96,6 +119,21 @@ export default function AdminEvent() {
     } catch (err) { console.error(err) }
   }
 
+  const handleLocationSelect = (loc) => {
+    setForm(prev => ({
+      ...prev,
+      location: loc.address,
+      latitude: loc.latitude,
+      longitude: loc.longitude
+    }))
+    setShowMapModal(false)
+  }
+
+  const openMapModal = () => {
+    setMapModalKey(prev => prev + 1)
+    setShowMapModal(true)
+  }
+
   const handleCreate = async () => {
     if (!form.title || !form.registration_start || !form.registration_end || !form.event_start || !form.event_end)
       return alert('Judul dan semua waktu wajib diisi!')
@@ -110,11 +148,12 @@ export default function AdminEvent() {
 
       setCreateModal(false)
       setForm({
-        title: '', description: '', wa_link: '', location: '', medal_name: 'Medali Sosialisasi',
+        title: '', description: '', wa_link: '', location: '', latitude: null, longitude: null, medal_name: 'Medali Sosialisasi',
         thumbnail_type: 'image', thumbnail_text: '', thumbnail_color: '#22c55e',
         registration_start: '', registration_end: '', event_start: '', event_end: ''
       })
       setThumbFile(null); setThumbPreview(null)
+      localStorage.removeItem(EVENT_DRAFT_KEY)
       fetchAll()
       alert('✅ Event berhasil dibuat!')
     } catch (err) {
@@ -186,7 +225,7 @@ export default function AdminEvent() {
 
         <div className="p-8 max-w-6xl mx-auto">
           {loading ? (
-            <div className="py-20 text-center text-white font-bold animate-pulse uppercase tracking-widest">Memuat...</div>
+            <div className="py-20 text-center text-white font-bold uppercase tracking-widest shimmer-loading inline-block px-8 py-4 rounded-2xl bg-white/5 border border-white/10">Memuat...</div>
           ) : activeTab === 'board' ? (
             // ===== BOARD EVENT =====
             <div>
@@ -472,13 +511,14 @@ export default function AdminEvent() {
                   </div>
                 )}
               </div>
-              {/* Lokasi - Simple Text Input */}
+              {/* Lokasi - Map Picker */}
               <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Lokasi Event</label>
-                <input className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-green-400"
-                  placeholder="Contoh: Jakarta, Bandung, dll"
-                  value={form.location}
-                  onChange={e => setForm({ ...form, location: e.target.value })} />
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">📍 Lokasi Event</label>
+                <button type="button" onClick={openMapModal}
+                  className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 ring-green-400 text-left flex items-center gap-3 hover:bg-gray-100 transition-all">
+                  <MapPin size={18} className="text-green-600 flex-shrink-0" />
+                  <span className="font-bold text-gray-700">{form.location || 'Pilih lokasi dari peta...'}</span>
+                </button>
               </div>
               {/* Link WA */}
               <div>
@@ -546,6 +586,24 @@ export default function AdminEvent() {
             )}
             <button onClick={() => setSuccessData(null)}
               className="w-full py-4 bg-gray-100 text-gray-600 font-black rounded-2xl hover:bg-gray-200 transition">Tutup</button>
+          </div>
+        </div>
+      )}
+
+      {showMapModal && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowMapModal(false)}>
+          <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white rounded-t-[40px] px-8 pt-8 pb-4 border-b border-gray-50 z-10 flex justify-between items-center">
+              <h2 className="font-black text-2xl text-gray-800 uppercase italic">Pilih Lokasi Event</h2>
+              <button onClick={() => setShowMapModal(false)} className="text-gray-300 hover:text-gray-600"><X size={22} /></button>
+            </div>
+            <div className="px-8 py-6">
+              <MapLocationPicker
+                key={mapModalKey}
+                onLocationSelect={handleLocationSelect}
+                initialLocation={form.latitude && form.longitude ? { latitude: form.latitude, longitude: form.longitude, address: form.location } : null}
+              />
+            </div>
           </div>
         </div>
       )}

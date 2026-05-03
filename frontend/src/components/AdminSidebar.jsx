@@ -110,7 +110,7 @@ export default function AdminSidebar() {
             <div className="px-6 pt-4">
               <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Statistik Verifikasi</p>
               {loading ? (
-                <div className="text-center py-4 text-gray-300 text-[10px] font-bold animate-pulse uppercase">Memuat...</div>
+                <div className="text-center py-4 text-gray-300 text-[10px] font-bold uppercase shimmer-loading inline-block px-6 py-3 rounded-2xl bg-gray-50">Memuat...</div>
               ) : adminStats ? (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2 bg-green-50 rounded-2xl p-4 flex items-center justify-between">

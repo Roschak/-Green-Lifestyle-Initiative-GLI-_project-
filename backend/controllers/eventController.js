@@ -2,6 +2,45 @@
 // Handles all event-related operations: creation, registration, status tracking, and attendance management
 const db = require('../config/db');
 const admin = require('firebase-admin');
+const path = require('path');
+
+const resolveUploadedImageUrl = (file) => {
+    if (!file) return null;
+
+    const directUrl = file.secure_url || file.url || file.path;
+    if (!directUrl) return null;
+
+    if (typeof directUrl === 'string' && /^https?:\/\//i.test(directUrl)) {
+        return directUrl;
+    }
+
+    if (file.filename) {
+        return `/uploads/${file.filename}`;
+    }
+
+    const normalized = String(directUrl).replace(/\\/g, '/');
+    const uploadsIndex = normalized.lastIndexOf('/uploads/');
+    if (uploadsIndex >= 0) {
+        return normalized.slice(uploadsIndex);
+    }
+
+    return `/${path.posix.normalize(normalized).replace(/^\/+/, '')}`;
+};
+
+const toDate = (value) => {
+    if (!value) return null;
+    if (value?.toDate) return value.toDate();
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isActivePublicEvent = (eventData) => {
+    const now = new Date();
+    const approvalStatus = eventData.approval_status || 'pending';
+    const registrationEnd = toDate(eventData.registration_end);
+
+    return approvalStatus === 'approved' && registrationEnd && now < registrationEnd;
+};
 
 /**
  * Calculate Event Status based on current time and event schedule
@@ -66,7 +105,12 @@ exports.createEvent = async (req, res) => {
         // Upload thumbnail jika ada
         let thumbnailUrl = null;
         if (req.file) {
-            thumbnailUrl = req.file.path;
+            thumbnailUrl = resolveUploadedImageUrl(req.file);
+        } else if ((thumbnail_type || 'image') === 'image') {
+            return res.status(400).json({
+                success: false,
+                message: 'Thumbnail gambar wajib diupload jika memilih mode image.'
+            });
         }
 
         // Ambil info host dari auth token
@@ -124,6 +168,7 @@ exports.createEvent = async (req, res) => {
 
 exports.getAllEvents = async (req, res) => {
     try {
+        const visibility = String(req.query.visibility || '').toLowerCase();
         const snap = await db.collection('events').orderBy('created_at', 'desc').get();
         const events = [];
 
@@ -145,7 +190,12 @@ exports.getAllEvents = async (req, res) => {
             };
             data.status = calculateEventStatus(dataForStatusCalc);
 
-            events.push({ id: doc.id, ...data });
+            const eventItem = { id: doc.id, ...data };
+            if (visibility === 'active' && !isActivePublicEvent(eventItem)) {
+                return;
+            }
+
+            events.push(eventItem);
         });
 
         console.log(`✅ getAllEvents:`, JSON.stringify(events).substring(0, 200));
@@ -178,7 +228,12 @@ exports.getAllEvents = async (req, res) => {
                     };
                     data.status = calculateEventStatus(dataForStatusCalc);
 
-                    events.push({ id: doc.id, ...data });
+                    const eventItem = { id: doc.id, ...data };
+                    if (visibility === 'active' && !isActivePublicEvent(eventItem)) {
+                        return;
+                    }
+
+                    events.push(eventItem);
                 });
 
                 // Sort in memory
@@ -264,7 +319,7 @@ exports.uploadProof = async (req, res) => {
 
         // Validasi file upload
         if (req.file) {
-            proofUrl = req.file.path;
+            proofUrl = resolveUploadedImageUrl(req.file);
             console.log('✅ Proof uploaded:', proofUrl);
         } else {
             return res.status(400).json({ success: false, message: 'Gambar wajib diupload' });
@@ -454,7 +509,7 @@ exports.uploadAttendanceProof = async (req, res) => {
 
         let proofUrl = null;
         if (req.file) {
-            proofUrl = req.file.path;
+            proofUrl = resolveUploadedImageUrl(req.file);
             console.log('✅ Attendance proof uploaded:', proofUrl);
         } else {
             return res.status(400).json({

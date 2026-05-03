@@ -22,7 +22,7 @@ function ProtectedRoute({ children, requireAdmin }) {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-green-900">
-      <div className="text-white text-center">
+      <div className="text-white text-center shimmer-loading px-8 py-6 rounded-3xl bg-white/5 border border-white/10">
         <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-3" />
         <p className="text-xs font-bold uppercase tracking-widest text-white/60">Loading...</p>
       </div>

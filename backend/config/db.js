@@ -46,7 +46,7 @@ if (!admin.apps.length) {
         const project = process.env.FIREBASE_PROJECT_ID || 'unknown';
         console.log('✅ Firebase Admin SDK initialized');
         console.log(`📁 Project: ${project}`);
-        
+
         db = admin.firestore();
         firebaseReady = true;
     } catch (error) {

@@ -2,6 +2,7 @@
 // Handles user-related operations: action reporting, stats retrieval, profile data
 const db = require('../config/db');
 const admin = require('firebase-admin');
+const path = require('path');
 // TODO: Firebase Storage upload to be implemented later
 
 /**
@@ -23,10 +24,28 @@ exports.createAction = async (req, res) => {
             return res.status(400).json({ success: false, message: 'User ID dan nama aksi wajib' });
         }
 
-        // Get image from multer upload (Cloudinary)
-        if (req.file && req.file.path) {
-            imageUrl = req.file.path;
-            console.log('✅ Image uploaded to Cloudinary:', imageUrl);
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Foto aksi wajib diupload. Jika upload gagal, cek koneksi atau konfigurasi Cloudinary.'
+            });
+        }
+
+        // Get image URL from upload result (Cloudinary URL or local /uploads path)
+        if (req.file) {
+            if (req.file.path && /^https?:\/\//i.test(req.file.path)) {
+                imageUrl = req.file.path;
+            } else if (req.file.filename) {
+                imageUrl = `/uploads/${req.file.filename}`;
+            } else if (req.file.path) {
+                imageUrl = `/${String(req.file.path).replace(/\\/g, '/').replace(/^\/+/, '')}`;
+            }
+
+            if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+                imageUrl = `/${path.posix.normalize(imageUrl).replace(/^\/+/, '')}`;
+            }
+
+            console.log('✅ Image uploaded:', imageUrl || '(no usable path)');
         } else {
             console.warn('⚠️ No image file uploaded');
         }
@@ -48,6 +67,7 @@ exports.createAction = async (req, res) => {
         // Add image URL if uploaded
         if (imageUrl) {
             actionData.img = imageUrl;
+            actionData.imageUrl = imageUrl;
         }
 
         // Simpan action dengan status pending untuk admin review
@@ -78,16 +98,15 @@ exports.createAction = async (req, res) => {
  * Get User Actions - Ambil riwayat aksi user (approved/pending/rejected)
  * Sort by created_at descending (terbaru duluan)
  * Convert Firestore Timestamps ke ISO string untuk JSON response
- * Fallback ke memory sort jika orderBy index error
+ * Sort di memory supaya tidak butuh composite index Firestore
  */
 exports.getUserActions = async (req, res) => {
     try {
         const userId = req.params.id;
 
-        // Query dengan orderBy (butuh composite index di Firestore)
+        // Query tanpa orderBy agar tidak tergantung composite index
         const snapshot = await db.collection('actions')
             .where('user_id', '==', userId)
-            .orderBy('created_at', 'desc')
             .get();
 
         const actions = [];
@@ -99,39 +118,15 @@ exports.getUserActions = async (req, res) => {
             actions.push({ id: doc.id, ...data });
         });
 
+        // Sort terbaru dulu berdasarkan created_at
+        actions.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
         console.log(`✅ getUserActions for ${userId}: ${actions.length} actions`);
         return res.json(actions);
 
     } catch (err) {
         console.error('❌ Get User Actions Error:', err);
-        // Jika error composite index, fallback query tanpa orderBy
-        if (err.code === 9) {
-            try {
-                // Query without orderBy
-                const snapshot = await db.collection('actions')
-                    .where('user_id', '==', req.params.id)
-                    .get();
-
-                const actions = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    // Convert timestamps
-                    if (data.created_at?.toDate) data.created_at = data.created_at.toDate().toISOString();
-                    if (data.updated_at?.toDate) data.updated_at = data.updated_at.toDate().toISOString();
-                    actions.push({ id: doc.id, ...data });
-                });
-
-                // Sort in memory by created_at descending
-                actions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                console.log(`✅ getUserActions (fallback) for ${req.params.id}: ${actions.length} actions`);
-                return res.json(actions);
-            } catch (fallbackErr) {
-                console.error('❌ Fallback error:', fallbackErr);
-                // Always return array even on error (graceful degradation)
-                return res.json([]);
-            }
-        }
-        console.error('❌ Returning fallback array');
+        // Always return array even on error (graceful degradation)
         return res.json([]);
     }
 };

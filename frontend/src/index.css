@@ -7,3 +7,23 @@ body { font-family: 'Poppins', sans-serif; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
+
+.shimmer-loading {
+	position: relative;
+	overflow: hidden;
+	isolation: isolate;
+}
+
+.shimmer-loading::after {
+	content: '';
+	position: absolute;
+	inset: -60% -40%;
+	background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.42) 50%, transparent 65%);
+	transform: translateX(-120%);
+	animation: shimmer-sweep 1.35s ease-in-out infinite;
+	pointer-events: none;
+}
+
+@keyframes shimmer-sweep {
+	100% { transform: translateX(120%); }
+}

@@ -1,11 +1,10 @@
 // src/pages/LoginPage.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft, Mail, X, CheckCircle2 } from 'lucide-react'
 import { auth, googleProvider, db } from '../config/firebase_config'
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth'
+import { sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import axios from 'axios'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -15,6 +14,11 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true)
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
+  const [resetError, setResetError] = useState('')
 
   // ✅ Login email/password — SAVE JWT TOKEN
     const handleLogin = async () => {
@@ -104,7 +108,52 @@ export default function LoginPage() {
     } finally { setLoading(false) }
   }
 
+  const openResetModal = () => {
+    setResetEmail(email)
+    setResetError('')
+    setResetMessage('')
+    setShowResetModal(true)
+  }
+
+  const handleResetPassword = async () => {
+    const targetEmail = resetEmail.trim()
+    if (!targetEmail) {
+      setResetError('Email wajib diisi.')
+      return
+    }
+
+    setResetLoading(true)
+    setResetError('')
+    setResetMessage('')
+
+    try {
+      console.log('🔄 Sending password reset email to:', targetEmail)
+      await sendPasswordResetEmail(auth, targetEmail, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false
+      })
+
+      console.log('✅ Password reset email sent successfully')
+      setResetMessage('✅ Link reset password sudah dikirim! Cek email Anda (termasuk folder spam).')
+    } catch (err) {
+      console.error('❌ Password reset error:', err.code, err.message)
+      
+      if (err.code === 'auth/invalid-email') {
+        setResetError('❌ Format email tidak valid.')
+      } else if (err.code === 'auth/user-not-found') {
+        setResetError('❌ Email tidak terdaftar di sistem.')
+      } else if (err.code === 'auth/too-many-requests') {
+        setResetError('❌ Terlalu banyak percobaan. Coba lagi dalam beberapa menit.')
+      } else {
+        setResetError(`❌ Error: ${err.message}`)
+      }
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   return (
+    <>
     <div className="flex h-screen overflow-hidden font-poppins">
       <div className="w-5/12 overflow-hidden">
         <img src="/images/pohon.jpg" alt="" className="w-full h-full object-cover"/>
@@ -139,7 +188,9 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="flex justify-between items-center mb-5">
-              <span className="text-green-400 text-sm font-semibold cursor-pointer">Forgot Password?</span>
+              <button type="button" onClick={openResetModal} className="text-green-400 text-sm font-semibold cursor-pointer hover:text-green-300 transition">
+                Forgot Password?
+              </button>
               <div className="flex items-center gap-2">
                 <span className="text-white/75 text-sm">Remember sign in details</span>
                 <div onClick={() => setRemember(!remember)} className="w-11 h-6 rounded-full cursor-pointer relative transition-colors"
@@ -175,5 +226,68 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+
+      {showResetModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[32px] bg-white shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-gray-800">Reset Password</h2>
+                <p className="text-xs text-gray-400 font-semibold">Link akan dikirim melalui email Firebase Auth.</p>
+              </div>
+              <button type="button" onClick={() => setShowResetModal(false)} className="text-gray-300 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold tracking-widest text-gray-400 mb-2 uppercase">Email</label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    placeholder="email@gmail.com"
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-gray-50 border border-gray-200 text-sm outline-none focus:border-green-400"
+                  />
+                </div>
+              </div>
+
+              {resetError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-3">
+                  {resetError}
+                </div>
+              )}
+
+              {resetMessage && (
+                <div className="rounded-2xl border border-green-200 bg-green-50 text-green-700 text-sm px-4 py-3 flex items-start gap-2">
+                  <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>{resetMessage}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={resetLoading}
+                  className="flex-1 py-3 rounded-2xl bg-green-600 text-white font-bold text-sm disabled:opacity-60"
+                >
+                  {resetLoading ? 'Mengirim...' : 'Kirim Link Reset'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

@@ -107,7 +107,7 @@ export default function UserSidebar() {
             </div>
 
             {loading ? (
-              <div className="py-8 text-center text-gray-300 text-[10px] font-bold animate-pulse uppercase tracking-widest">Memuat...</div>
+              <div className="py-8 text-center text-gray-300 text-[10px] font-bold uppercase tracking-widest shimmer-loading inline-block px-6 py-3 rounded-2xl bg-gray-50">Memuat...</div>
             ) : profile ? (
               <>
                 <div className="px-6 pt-5 space-y-2">

@@ -1,68 +1,62 @@
-import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvent } from 'react-leaflet'
-import L from 'leaflet'
+import { useState } from 'react'
+import { Map, Marker } from 'pigeon-maps'
 import { MapPin, Loader2, Navigation } from 'lucide-react'
-import 'leaflet/dist/leaflet.css'
 
-// Fix marker icons
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png'
-})
-
-// Map click handler component - with reverse geocoding
-function MapClickHandler({ onLocationSelect }) {
-  useMapEvent('click', async (e) => {
-    const { lat, lng } = e.latlng
-    
-    // Reverse geocoding - get location name from coordinates
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      )
-      const data = await response.json()
-      const locationName = data.address?.road || data.address?.village || data.address?.city || data.address?.county || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-      
-      onLocationSelect({ 
-        latitude: lat, 
-        longitude: lng, 
-        address: locationName 
-      })
-    } catch (err) {
-      console.error('Reverse geocoding error:', err)
-      onLocationSelect({ 
-        latitude: lat, 
-        longitude: lng, 
-        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` 
-      })
-    }
-  })
-  return null
-}
-
-// Center map on current position component
-function CenterMap({ position }) {
-  const map = useMap()
-  useEffect(() => {
-    if (position && Array.isArray(position) && position.length === 2) {
-      map.flyTo(position, 15, { duration: 1 })
-    } else if (position && position.latitude !== undefined && position.longitude !== undefined) {
-      map.flyTo([position.latitude, position.longitude], 15, { duration: 1 })
-    }
-  }, [position, map])
-  return null
+const parseInitialPosition = (initialLocation) => {
+  if (
+    initialLocation &&
+    typeof initialLocation.latitude === 'number' &&
+    typeof initialLocation.longitude === 'number'
+  ) {
+    return [initialLocation.latitude, initialLocation.longitude]
+  }
+  return [-6.2088, 106.8456]
 }
 
 export default function MapLocationPicker({ onLocationSelect, initialLocation = null }) {
-  const [position, setPosition] = useState(initialLocation || [-6.2088, 106.8456]) // Jakarta default
+  const [position, setPosition] = useState(parseInitialPosition(initialLocation))
+  const [zoom, setZoom] = useState(13)
   const [loading, setLoading] = useState(false)
   const [address, setAddress] = useState(initialLocation?.address || 'Klik di peta untuk memilih lokasi')
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
+
+  const applyLocation = (lat, lng, locationName) => {
+    setPosition([lat, lng])
+    setAddress(locationName)
+    const locationLabel = locationName.split(',')[0] || locationName
+    setSearchQuery(locationLabel)
+    setSuggestions([])
+    setShowSuggestions(false)
+
+    onLocationSelect({
+      latitude: lat,
+      longitude: lng,
+      address: locationName,
+    })
+  }
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      )
+      const data = await response.json()
+      const locationName =
+        data.display_name ||
+        data.address?.road ||
+        data.address?.village ||
+        data.address?.city ||
+        data.address?.county ||
+        `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      applyLocation(lat, lng, locationName)
+    } catch (err) {
+      console.error('Reverse geocoding error:', err)
+      applyLocation(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+    }
+  }
 
   // Search location using Nominatim API (OpenStreetMap)
   const searchLocation = async (query) => {
@@ -104,18 +98,9 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
     const lat = parseFloat(result.lat)
     const lng = parseFloat(result.lon)
     const name = result.display_name
-    
-    setPosition([lat, lng])
-    setAddress(name)
-    setSearchQuery('')
-    setSuggestions([])
-    setShowSuggestions(false)
-    
-    onLocationSelect({
-      latitude: lat,
-      longitude: lng,
-      address: name
-    })
+
+    setZoom(15)
+    applyLocation(lat, lng, name)
   }
 
   // Get user's current location
@@ -125,8 +110,8 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords
-          setPosition([latitude, longitude])
-          setAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`)
+          setZoom(15)
+          reverseGeocode(latitude, longitude)
           setLoading(false)
         },
         (err) => {
@@ -135,23 +120,10 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
           setLoading(false)
         }
       )
+    } else {
+      alert('Browser tidak mendukung geolocation')
+      setLoading(false)
     }
-  }
-
-  const handleLocationSelect = (loc) => {
-    setPosition([loc.latitude, loc.longitude])
-    setAddress(loc.address)
-    // Extract location name for search field
-    const locationName = loc.address.split(',')[0] || loc.address
-    setSearchQuery(locationName)
-    setSuggestions([])
-    setShowSuggestions(false)
-    
-    onLocationSelect({
-      latitude: loc.latitude,
-      longitude: loc.longitude,
-      address: loc.address
-    })
   }
 
   return (
@@ -199,31 +171,23 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
       </div>
 
       <div className="border-2 border-gray-300 rounded-lg overflow-hidden h-80 bg-gray-100">
-        <MapContainer
+        <Map
+          height={320}
           center={position}
-          zoom={13}
-          style={{ height: '100%', width: '100%' }}
-          className="z-0"
+          zoom={zoom}
+          minZoom={3}
+          maxZoom={18}
+          onBoundsChanged={({ center, zoom: nextZoom }) => {
+            setPosition(center)
+            setZoom(nextZoom)
+          }}
+          onClick={({ latLng }) => {
+            const [lat, lng] = latLng
+            reverseGeocode(lat, lng)
+          }}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
-          {position && (
-            <>
-              <Marker position={position}>
-                <Popup>
-                  <div className="text-sm">
-                    <p className="font-semibold">Lokasi Terpilih</p>
-                    <p>{address}</p>
-                  </div>
-                </Popup>
-              </Marker>
-              <CenterMap position={position} />
-            </>
-          )}
-          <MapClickHandler onLocationSelect={handleLocationSelect} />
-        </MapContainer>
+          <Marker width={44} anchor={position} />
+        </Map>
       </div>
 
       <div className="flex items-start gap-2 bg-blue-50 p-3 rounded-lg border border-blue-200">

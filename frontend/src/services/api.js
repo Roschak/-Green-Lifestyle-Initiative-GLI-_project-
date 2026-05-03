@@ -77,7 +77,7 @@ export const getLeaderboard = () => api.get('/admin/leaderboard')
 
 // EVENTS
 export const createEvent = (data) => api.post('/events/create', data)
-export const getAllEvents = () => api.get('/events')
+export const getAllEvents = (params = '?visibility=active') => api.get(`/events${params}`)
 export const registerToEvent = (data) => api.post('/events/register', data)
 export const uploadProof = (data) => api.post('/events/proof', data)
 

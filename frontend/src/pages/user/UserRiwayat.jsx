@@ -26,12 +26,14 @@ const fmt = (d) => {
 }
 
 // Helper to get correct image URL
-const getImageUrl = (img) => {
-  if (!img || img === 'no-image.jpg') return null
-  if (img.startsWith('http')) return img // Already full URL
+const resolveActionImage = (action) => {
+  const source = action?.img || action?.imageUrl || action?.proof_img || action?.photo_url || action?.photo
+  if (!source || source === 'no-image.jpg') return null
+  if (String(source).startsWith('http')) return String(source)
+  const normalized = String(source).replace(/\\/g, '/').replace(/^\/+/, '')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}${img}`
+  return `${baseUrl}/${normalized}`
 }
 
 export default function UserRiwayat() {
@@ -138,10 +140,10 @@ export default function UserRiwayat() {
                       {/* Foto */}
                       <div
                         className="w-20 h-20 bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => item.img && item.img !== 'no-image.jpg' && setDetailModal(item)}
+                        onClick={() => resolveActionImage(item) && setDetailModal(item)}
                       >
-                        {item.img && item.img !== 'no-image.jpg'
-                          ? <img src={getImageUrl(item.img)} alt="" className="w-full h-full object-cover" />
+                        {resolveActionImage(item)
+                          ? <img src={resolveActionImage(item)} alt="" className="w-full h-full object-cover" />
                           : <span className="text-2xl">🌿</span>
                         }
                       </div>
@@ -221,9 +223,9 @@ export default function UserRiwayat() {
           >
             {/* Foto besar */}
             <div className="relative">
-              {detailModal.img && detailModal.img !== 'no-image.jpg' ? (
+              {resolveActionImage(detailModal) ? (
                 <img
-                  src={getImageUrl(detailModal.img)}
+                  src={resolveActionImage(detailModal)}
                   alt={detailModal.action_name}
                   className="w-full h-52 object-cover"
                 />

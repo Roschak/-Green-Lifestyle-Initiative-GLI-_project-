@@ -1,11 +1,14 @@
 import { useState, useRef } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import UserSidebar from '../../components/UserSidebar'
+import MapLocationPicker from '../../components/MapLocationPicker'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
-import { Send, Image as ImageIcon, CheckCircle, Loader2 } from 'lucide-react'
+import { Send, Image as ImageIcon, CheckCircle, Loader2, MapPin, X } from 'lucide-react'
 
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
+const AKSI_DRAFT_KEY = 'gli_user_aksi_draft'
 
 export default function UserAksi() {
   const navigate = useNavigate()
@@ -15,7 +18,39 @@ export default function UserAksi() {
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [formData, setFormData] = useState({ action_name: '', description: '', location: '' })
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [mapModalKey, setMapModalKey] = useState(0)
+  const [formData, setFormData] = useState({ action_name: '', description: '', location: '', latitude: null, longitude: null })
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(AKSI_DRAFT_KEY)
+    if (savedDraft) {
+      try {
+        setFormData(prev => ({ ...prev, ...JSON.parse(savedDraft) }))
+      } catch (err) {
+        console.warn('Draft aksi tidak valid:', err)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(AKSI_DRAFT_KEY, JSON.stringify(formData))
+  }, [formData])
+
+  const handleLocationSelect = (loc) => {
+    setFormData(prev => ({
+      ...prev,
+      location: loc.address,
+      latitude: loc.latitude,
+      longitude: loc.longitude
+    }))
+    setShowMapModal(false)
+  }
+
+  const openMapModal = () => {
+    setMapModalKey(prev => prev + 1)
+    setShowMapModal(true)
+  }
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0]
@@ -63,6 +98,11 @@ export default function UserAksi() {
       try {
         await api.post('/user/actions', data)
 
+        localStorage.removeItem(AKSI_DRAFT_KEY)
+        setFormData({ action_name: '', description: '', location: '', latitude: null, longitude: null })
+        setFile(null)
+        setPreview(null)
+
         alert("✅ Berhasil!")
         navigate('/user/riwayat')
       } catch (err) {
@@ -75,6 +115,10 @@ export default function UserAksi() {
               Authorization: `Bearer ${token}`
             }
           })
+          localStorage.removeItem(AKSI_DRAFT_KEY)
+          setFormData({ action_name: '', description: '', location: '', latitude: null, longitude: null })
+          setFile(null)
+          setPreview(null)
           alert("✅ Berhasil!")
           navigate('/user/riwayat')
         } else {
@@ -101,15 +145,17 @@ export default function UserAksi() {
               <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">Nama Aksi</label>
               <input required className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-green-400 outline-none transition-all"
                 placeholder="Contoh: Menanam 10 Bibit Mangrove"
+                value={formData.action_name}
                 onChange={e => setFormData({ ...formData, action_name: e.target.value })} />
             </div>
 
             <div>
-              <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">Lokasi Aksi</label>
-              <input className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 focus:border-green-400 outline-none transition-all"
-                placeholder="Contoh: Jakarta Pusat, Bandung, dll"
-                value={formData.location}
-                onChange={e => setFormData({ ...formData, location: e.target.value })} />
+              <label className="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">📍 Lokasi Aksi</label>
+              <button type="button" onClick={openMapModal}
+                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 text-left focus:border-green-400 transition-all flex items-center gap-3 hover:bg-gray-100">
+                <MapPin size={18} className="text-green-600 flex-shrink-0" />
+                <span className="text-sm font-bold text-gray-700">{formData.location || 'Pilih lokasi dari peta...'}</span>
+              </button>
             </div>
 
             <div onClick={() => fileInputRef.current.click()} className="group border-2 border-dashed border-gray-200 rounded-3xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all">
@@ -126,6 +172,7 @@ export default function UserAksi() {
 
             <textarea className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 min-h-[100px] outline-none focus:border-green-400"
               placeholder="Ceritakan sedikit tentang aksimu..."
+              value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })} />
 
             <button disabled={loading} className="w-full bg-green-500 text-white font-black py-5 rounded-2xl shadow-lg hover:bg-green-600 transition-all flex items-center justify-center gap-3">
@@ -135,6 +182,24 @@ export default function UserAksi() {
           </form>
         </div>
       </main>
+
+      {showMapModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowMapModal(false)}>
+          <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white rounded-t-[40px] px-8 pt-8 pb-4 border-b border-gray-50 z-10 flex justify-between items-center">
+              <h2 className="font-black text-2xl text-gray-800 uppercase italic">Pilih Lokasi Aksi</h2>
+              <button onClick={() => setShowMapModal(false)} className="text-gray-300 hover:text-gray-600"><X size={22} /></button>
+            </div>
+            <div className="px-8 py-6">
+              <MapLocationPicker
+                key={mapModalKey}
+                onLocationSelect={handleLocationSelect}
+                initialLocation={formData.latitude && formData.longitude ? { latitude: formData.latitude, longitude: formData.longitude, address: formData.location } : null}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,12 +7,14 @@ import { getAllActions, verifyAction } from '../../services/api'
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 
 // Helper to get correct image URL
-const getImageUrl = (img) => {
-  if (!img || img === 'no-image.jpg') return null
-  if (img.startsWith('http')) return img
+const getImageUrl = (action) => {
+  const source = action?.img || action?.imageUrl || action?.proof_img || action?.photo_url || action?.photo
+  if (!source || source === 'no-image.jpg') return null
+  if (String(source).startsWith('http')) return String(source)
+  const normalized = String(source).replace(/\\/g, '/').replace(/^\/+/, '')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}${img}`
+  return `${baseUrl}/${normalized}`
 }
 
 // --- KOMPONEN HEADER SEKSI ---
@@ -49,7 +51,7 @@ const SectionHeader = ({ title, type, color, count, searchValue, onSearchChange,
 // ✅ Komponen foto - tampilkan gambar kalau ada, icon kalau tidak ada
 const ActionPhoto = ({ img, actionName, onClick }) => {
   const [imgError, setImgError] = useState(false)
-  const imgUrl = getImageUrl(img)
+  const imgUrl = getImageUrl({ img })
 
   if (imgUrl && !imgError) {
     return (
@@ -113,7 +115,7 @@ const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, date
             {/* ✅ FIX: Kolom foto sekarang tampilkan gambar asli */}
             <td className="py-4 px-2">
               <ActionPhoto
-                img={item.img}
+                img={item.img || item.imageUrl || item.proof_img || item.photo_url || item.photo}
                 actionName={item.action_name}
                 onClick={() => onPhotoClick(item)}
               />
@@ -219,7 +221,7 @@ export default function AdminModerasi() {
 
         <div className="p-8 max-w-6xl mx-auto">
           {loading ? (
-            <div className="py-20 text-center text-white font-bold animate-pulse uppercase tracking-[0.3em]">Menghubungkan Server...</div>
+            <div className="py-20 text-center text-white font-bold uppercase tracking-[0.3em] shimmer-loading inline-block px-8 py-4 rounded-2xl bg-white/5 border border-white/10">Menghubungkan Server...</div>
           ) : (
             <>
               {['pending', 'approved', 'rejected'].map(type => (
@@ -256,9 +258,9 @@ export default function AdminModerasi() {
               ✕ Tutup
             </button>
             <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl">
-              {photoModal.img && photoModal.img !== 'no-image.jpg' ? (
+              {getImageUrl(photoModal) ? (
                 <img
-                  src={getImageUrl(photoModal.img)}
+                  src={getImageUrl(photoModal)}
                   alt={photoModal.action_name}
                   className="w-full max-h-[70vh] object-contain"
                 />
@@ -285,10 +287,10 @@ export default function AdminModerasi() {
             <div className="absolute top-0 left-0 w-full h-2 bg-yellow-400" />
 
             {/* ✅ Tampilkan foto di modal verifikasi juga */}
-            {verifModal.img && verifModal.img !== 'no-image.jpg' && (
+            {getImageUrl(verifModal) && (
               <div className="mb-6 rounded-2xl overflow-hidden max-h-48">
                 <img
-                  src={getImageUrl(verifModal.img)}
+                  src={getImageUrl(verifModal)}
                   alt={verifModal.action_name}
                   className="w-full h-48 object-cover"
                 />
@@ -362,10 +364,10 @@ export default function AdminModerasi() {
             </div>
 
             {/* ✅ Foto di modal detail juga */}
-            {detailModal.img && detailModal.img !== 'no-image.jpg' && (
+            {getImageUrl(detailModal) && (
               <div className="mb-4 rounded-2xl overflow-hidden">
                 <img
-                  src={getImageUrl(detailModal.img)}
+                  src={getImageUrl(detailModal)}
                   alt={detailModal.action_name}
                   className="w-full h-48 object-cover"
                 />

@@ -219,8 +219,8 @@ const AdminAttendance = () => {
                     <td className="px-6 py-4 text-gray-600 text-sm">{item.email}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${item.is_member
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-700'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
                         }`}>
                         {item.is_member ? 'Member' : 'Guest'}
                       </span>

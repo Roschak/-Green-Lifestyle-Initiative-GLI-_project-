@@ -12,16 +12,28 @@ const fmtDT = (d) => !d ? '-' : new Date(d).toLocaleString('id-ID', { day: 'nume
 // Helper to get correct image URL
 const getImageUrl = (img) => {
   if (!img || img === 'no-image.jpg') return null
-  if (img.startsWith('http')) return img
+  if (String(img).startsWith('http')) return String(img)
+  const normalized = String(img).replace(/\\/g, '/')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}${img}`
+  const uploadsIndex = normalized.lastIndexOf('/uploads/')
+  if (uploadsIndex >= 0) return `${baseUrl}${normalized.slice(uploadsIndex)}`
+  if (normalized.startsWith('uploads/')) return `${baseUrl}/${normalized}`
+  return `${baseUrl}/${normalized.replace(/^\/+/, '')}`
 }
 
 const STATUS_MAP = {
   roundown: { label: 'Pendaftaran Dibuka', color: 'bg-yellow-400 text-yellow-900' },
   dilaksanakan: { label: 'Sedang Berlangsung', color: 'bg-green-400 text-green-900' },
   berakhir: { label: 'Telah Berakhir', color: 'bg-gray-400 text-gray-900' },
+}
+
+const toArray = (value) => {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.data)) return value.data
+  if (Array.isArray(value?.articles)) return value.articles
+  if (Array.isArray(value?.events)) return value.events
+  return []
 }
 
 // Komponen Thumbnail reusable
@@ -66,15 +78,15 @@ export default function LandingPage() {
 
   const fetchEvents = async () => {
     try {
-      const res = await api.get('/events')
-      setEvents(res.data || [])
+      const res = await api.get('/events?visibility=active')
+      setEvents(toArray(res.data))
     } catch (err) { console.error('Gagal ambil events:', err) }
   }
 
   const fetchArticles = async () => {
     try {
       const res = await api.get('/articles')
-      setArticles(res.data.articles || [])
+      setArticles(toArray(res.data))
     } catch (err) { console.error('Gagal ambil articles:', err) }
   }
 
