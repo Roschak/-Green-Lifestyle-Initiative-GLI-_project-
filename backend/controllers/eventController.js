@@ -38,8 +38,16 @@ const isActivePublicEvent = (eventData) => {
     const now = new Date();
     const approvalStatus = eventData.approval_status || 'pending';
     const registrationEnd = toDate(eventData.registration_end);
+    const eventEnd = toDate(eventData.event_end);
+    const eventStatus = eventData.status || calculateEventStatus(eventData);
 
-    return approvalStatus === 'approved' && registrationEnd && now < registrationEnd;
+    // Public board should show events that are still ongoing or still open for registration.
+    // Match admin behavior: pending events can be visible publicly, but rejected stay hidden.
+    const hasPublicAccess = approvalStatus !== 'rejected';
+    const notEndedYet = eventEnd ? now < eventEnd : eventStatus !== 'berakhir';
+    const stillRelevant = registrationEnd ? now < registrationEnd || eventStatus === 'dilaksanakan' : eventStatus !== 'berakhir';
+
+    return hasPublicAccess && notEndedYet && stillRelevant;
 };
 
 /**
@@ -87,6 +95,11 @@ exports.createEvent = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Judul, deskripsi, dan lokasi wajib diisi' });
         }
 
+        // Validasi waktu tidak boleh kosong
+        if (!registration_start || !registration_end || !event_start || !event_end) {
+            return res.status(400).json({ success: false, message: 'Semua waktu event wajib diisi' });
+        }
+
         // Parse dan validasi tanggal
         const regStart = new Date(registration_start);
         const regEnd = new Date(registration_end);
@@ -97,9 +110,15 @@ exports.createEvent = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Format tanggal tidak valid' });
         }
 
+        console.log('📅 Event dates received:', { registration_start, registration_end, event_start, event_end });
+        console.log('📅 Event dates parsed:', { regStart: regStart.toISOString(), regEnd: regEnd.toISOString(), evStart: evStart.toISOString(), evEnd: evEnd.toISOString() });
+
         // Validasi logika tanggal (mulai harus sebelum akhir)
         if (regStart >= regEnd) {
-            return res.status(400).json({ success: false, message: 'Waktu registrasi tidak valid' });
+            return res.status(400).json({ success: false, message: 'Waktu registrasi tidak valid - mulai harus sebelum akhir' });
+        }
+        if (evStart >= evEnd) {
+            return res.status(400).json({ success: false, message: 'Waktu event tidak valid - mulai harus sebelum akhir' });
         }
 
         // Upload thumbnail jika ada
@@ -377,11 +396,11 @@ exports.getHostEvents = async (req, res) => {
 
         const snap = await db.collection('events')
             .where('host_id', '==', user_id)
-            .orderBy('created_at', 'desc')
             .get();
 
         console.log(`📊 Found ${snap.size} events for host_id="${user_id}"`);
         const events = { roundown: [], dilaksanakan: [], berakhir: [] };
+        const docsArray = [];
         snap.forEach(doc => {
             const data = doc.data();
             // Convert Firestore Timestamps to ISO strings
@@ -391,9 +410,14 @@ exports.getHostEvents = async (req, res) => {
             if (data.event_start?.toDate) data.event_start = data.event_start.toDate().toISOString();
             if (data.event_end?.toDate) data.event_end = data.event_end.toDate().toISOString();
 
-            const eventWithId = { id: doc.id, ...data };
+            docsArray.push({ id: doc.id, ...data });
+        });
+
+        docsArray.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        docsArray.forEach(eventWithId => {
             // ✅ FIXED: Calculate status based on current time, not stored status
-            const status = calculateEventStatus(data);
+            const status = calculateEventStatus(eventWithId);
             if (events[status]) events[status].push(eventWithId);
         });
 
