@@ -6,18 +6,15 @@ import { getAllActions, verifyAction } from '../../services/api'
 
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 
-// Helper to get correct image URL
 const getImageUrl = (action) => {
   const source = action?.img || action?.imageUrl || action?.proof_img || action?.photo_url || action?.photo
   if (!source || source === 'no-image.jpg') return null
   if (String(source).startsWith('http')) return String(source)
   const normalized = String(source).replace(/\\/g, '/').replace(/^\/+/, '')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-  const baseUrl = apiUrl.replace('/api', '')
-  return `${baseUrl}/${normalized}`
+  return `${apiUrl.replace('/api', '')}/${normalized}`
 }
 
-// --- KOMPONEN HEADER SEKSI ---
 const SectionHeader = ({ title, type, color, count, searchValue, onSearchChange, dateValue, onDateChange }) => (
   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
     <div className="flex items-center gap-3">
@@ -48,7 +45,6 @@ const SectionHeader = ({ title, type, color, count, searchValue, onSearchChange,
   </div>
 )
 
-// ✅ Komponen foto - tampilkan gambar kalau ada, icon kalau tidak ada
 const ActionPhoto = ({ img, actionName, onClick }) => {
   const [imgError, setImgError] = useState(false)
   const imgUrl = getImageUrl({ img })
@@ -60,12 +56,7 @@ const ActionPhoto = ({ img, actionName, onClick }) => {
         onClick={onClick}
         title="Klik untuk perbesar"
       >
-        <img
-          src={imgUrl}
-          alt={actionName}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
+        <img src={imgUrl} alt={actionName} className="w-full h-full object-cover" onError={() => setImgError(true)} />
       </div>
     )
   }
@@ -77,7 +68,6 @@ const ActionPhoto = ({ img, actionName, onClick }) => {
   )
 }
 
-// --- KOMPONEN TABEL ---
 const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, dates, onDateChange, onVerif, onDetail, onPhotoClick }) => (
   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-10 overflow-x-auto">
     <SectionHeader
@@ -93,8 +83,10 @@ const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, date
     <table className="w-full">
       <thead>
         <tr className="border-b border-gray-50">
-          {['User', 'Aksi', 'Kategori', 'Foto', ''].map(h => (
-            <th key={h} className="text-left text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] pb-4 px-2">{h}</th>
+          {['User', 'Aksi', 'Kategori', 'Foto', ''].map((h) => (
+            <th key={h} className="text-left text-[10px] font-black text-gray-300 uppercase tracking-[0.2em] pb-4 px-2">
+              {h}
+            </th>
           ))}
         </tr>
       </thead>
@@ -104,15 +96,13 @@ const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, date
             <td className="py-4 px-2">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center text-[10px] font-black text-green-700">
-                  {item.user_name ? item.user_name.split(' ').map(n => n[0]).join('') : '?'}
+                  {item.user_name ? item.user_name.split(' ').map((n) => n[0]).join('') : '?'}
                 </div>
                 <span className="text-sm font-bold text-gray-700">{item.user_name}</span>
               </div>
             </td>
             <td className="py-4 px-2 text-xs text-gray-500 font-medium max-w-[200px] truncate">{item.description}</td>
             <td className="py-4 px-2 italic text-[10px] font-bold text-gray-400 uppercase tracking-wider">{item.action_name}</td>
-
-            {/* ✅ FIX: Kolom foto sekarang tampilkan gambar asli */}
             <td className="py-4 px-2">
               <ActionPhoto
                 img={item.img || item.imageUrl || item.proof_img || item.photo_url || item.photo}
@@ -120,11 +110,12 @@ const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, date
                 onClick={() => onPhotoClick(item)}
               />
             </td>
-
             <td className="py-4 px-2 text-right">
               <button
-                onClick={() => isPending ? onVerif(item) : onDetail(item)}
-                className={`text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest transition-all ${isPending ? 'bg-green-400 text-white shadow-lg shadow-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                onClick={() => (isPending ? onVerif(item) : onDetail(item))}
+                className={`text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest transition-all ${
+                  isPending ? 'bg-green-400 text-white shadow-lg shadow-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                }`}
               >
                 {isPending ? 'Verifikasi' : 'Lihat'}
               </button>
@@ -134,14 +125,11 @@ const ActionTable = ({ type, isPending, data, searchInputs, onSearchChange, date
       </tbody>
     </table>
     {data.length === 0 && (
-      <div className="py-10 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">
-        Tidak ada data ditemukan
-      </div>
+      <div className="py-10 text-center text-xs font-bold text-gray-300 uppercase tracking-widest">Tidak ada data ditemukan</div>
     )}
   </div>
 )
 
-// --- KOMPONEN UTAMA ---
 export default function AdminModerasi() {
   const [loading, setLoading] = useState(true)
   const [actions, setActions] = useState({ pending: [], approved: [], rejected: [] })
@@ -151,13 +139,14 @@ export default function AdminModerasi() {
   const [verifModal, setVerifModal] = useState(null)
   const [verifData, setVerifData] = useState({ poin: '', catatan: '', saran: '' })
   const [detailModal, setDetailModal] = useState(null)
-  // ✅ State untuk modal foto besar
   const [photoModal, setPhotoModal] = useState(null)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+  }, [])
 
   useEffect(() => {
-    const handler = setTimeout(() => { setDebouncedFilters(searchInputs) }, 300)
+    const handler = setTimeout(() => setDebouncedFilters(searchInputs), 300)
     return () => clearTimeout(handler)
   }, [searchInputs])
 
@@ -166,21 +155,27 @@ export default function AdminModerasi() {
     try {
       const res = await getAllActions()
       const data = Array.isArray(res.data) ? res.data : []
-      console.log('📌 getAllActions result:', data)
       setActions({
-        pending: data.filter(a => a.status === 'pending'),
-        approved: data.filter(a => a.status === 'approved'),
-        rejected: data.filter(a => a.status === 'rejected'),
+        pending: data.filter((a) => a.status === 'pending'),
+        approved: data.filter((a) => a.status === 'approved'),
+        rejected: data.filter((a) => a.status === 'rejected')
       })
     } catch (err) {
       console.error('❌ fetchData error:', err)
       setActions({ pending: [], approved: [], rejected: [] })
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleVerify = async (id, status) => {
-    if (status === 'approved' && !verifData.poin) return alert('Poin wajib diisi untuk persetujuan!')
-    if (status === 'rejected' && !verifData.saran) return alert('Saran perbaikan wajib diisi jika ditolak!')
+    if (status === 'approved' && !verifData.poin) {
+      return alert('Poin harus lebih dari 0 untuk persetujuan!')
+    }
+    if (status === 'rejected' && !verifData.saran) {
+      return alert('Alasan penolakan wajib diisi!')
+    }
+
     try {
       await verifyAction(id, {
         status,
@@ -200,9 +195,11 @@ export default function AdminModerasi() {
 
   const getFilteredData = (type) => {
     const typeData = actions[type] || []
-    return typeData.filter(item => {
-      const matchName = item.user_name?.toLowerCase().includes(debouncedFilters[type].toLowerCase())
-      const matchDate = dates[type] ? item.created_at.includes(dates[type]) : true
+    const filter = debouncedFilters[type].toLowerCase()
+    return typeData.filter((item) => {
+      const matchName = item.user_name?.toLowerCase().includes(filter)
+      const createdAt = String(item.created_at || '')
+      const matchDate = dates[type] ? createdAt.includes(dates[type]) : true
       return matchName && matchDate
     })
   }
@@ -221,19 +218,21 @@ export default function AdminModerasi() {
 
         <div className="p-8 max-w-6xl mx-auto">
           {loading ? (
-            <div className="py-20 text-center text-white font-bold uppercase tracking-[0.3em] shimmer-loading inline-block px-8 py-4 rounded-2xl bg-white/5 border border-white/10">Menghubungkan Server...</div>
+            <div className="py-20 text-center text-white font-bold uppercase tracking-[0.3em] shimmer-loading inline-block px-8 py-4 rounded-2xl bg-white/5 border border-white/10">
+              Menghubungkan Server...
+            </div>
           ) : (
             <>
-              {['pending', 'approved', 'rejected'].map(type => (
+              {['pending', 'approved', 'rejected'].map((type) => (
                 <ActionTable
                   key={type}
                   type={type}
                   isPending={type === 'pending'}
                   data={getFilteredData(type)}
                   searchInputs={searchInputs}
-                  onSearchChange={(t, v) => setSearchInputs(p => ({ ...p, [t]: v }))}
+                  onSearchChange={(t, v) => setSearchInputs((prev) => ({ ...prev, [t]: v }))}
                   dates={dates}
-                  onDateChange={(t, v) => setDates(p => ({ ...p, [t]: v }))}
+                  onDateChange={(t, v) => setDates((prev) => ({ ...prev, [t]: v }))}
                   onVerif={setVerifModal}
                   onDetail={setDetailModal}
                   onPhotoClick={setPhotoModal}
@@ -244,13 +243,9 @@ export default function AdminModerasi() {
         </div>
       </main>
 
-      {/* ✅ MODAL FOTO BESAR */}
       {photoModal && (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
-          onClick={() => setPhotoModal(null)}
-        >
-          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setPhotoModal(null)}>
+          <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setPhotoModal(null)}
               className="absolute -top-10 right-0 text-white/60 hover:text-white font-black text-sm uppercase tracking-widest"
@@ -259,11 +254,7 @@ export default function AdminModerasi() {
             </button>
             <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl">
               {getImageUrl(photoModal) ? (
-                <img
-                  src={getImageUrl(photoModal)}
-                  alt={photoModal.action_name}
-                  className="w-full max-h-[70vh] object-contain"
-                />
+                <img src={getImageUrl(photoModal)} alt={photoModal.action_name} className="w-full max-h-[70vh] object-contain" />
               ) : (
                 <div className="h-64 flex items-center justify-center text-gray-300 flex-col gap-3">
                   <Camera size={48} />
@@ -272,21 +263,21 @@ export default function AdminModerasi() {
               )}
               <div className="p-6">
                 <p className="font-black text-gray-800 uppercase">{photoModal.action_name}</p>
-                <p className="text-gray-400 text-xs mt-1">{photoModal.user_name} • {photoModal.description}</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  {photoModal.user_name} • {photoModal.description}
+                </p>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL VERIFIKASI */}
       {verifModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setVerifModal(null)} />
           <div className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-[40px] p-10 shadow-2xl overflow-y-auto">
             <div className="absolute top-0 left-0 w-full h-2 bg-yellow-400" />
 
-            {/* ✅ Tampilkan foto di modal verifikasi juga */}
             {getImageUrl(verifModal) && (
               <div className="mb-6 rounded-2xl overflow-hidden max-h-48">
                 <img
@@ -353,7 +344,6 @@ export default function AdminModerasi() {
         </div>
       )}
 
-      {/* MODAL DETAIL */}
       {detailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setDetailModal(null)} />
@@ -363,14 +353,9 @@ export default function AdminModerasi() {
               <X className="cursor-pointer text-gray-400 hover:text-black" onClick={() => setDetailModal(null)} />
             </div>
 
-            {/* ✅ Foto di modal detail juga */}
             {getImageUrl(detailModal) && (
               <div className="mb-4 rounded-2xl overflow-hidden">
-                <img
-                  src={getImageUrl(detailModal)}
-                  alt={detailModal.action_name}
-                  className="w-full h-48 object-cover"
-                />
+                <img src={getImageUrl(detailModal)} alt={detailModal.action_name} className="w-full h-48 object-cover" />
               </div>
             )}
 
@@ -394,7 +379,7 @@ export default function AdminModerasi() {
               {detailModal.status === 'approved' && (
                 <div className="bg-green-50 p-4 rounded-2xl">
                   <span className="block text-[10px] font-black text-gray-400 uppercase mb-1">Poin Diberikan</span>
-                  <p className="font-black text-green-600">{detailModal.points || 0} poin</p>
+                  <p className="font-black text-green-600">{detailModal.points_earned || detailModal.points || 0} poin</p>
                 </div>
               )}
               {detailModal.status === 'rejected' && detailModal.rejection_reason && (

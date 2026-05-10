@@ -127,26 +127,50 @@ export default function LoginPage() {
     setResetMessage('')
 
     try {
-      console.log('🔄 Sending password reset email to:', targetEmail)
-      await sendPasswordResetEmail(auth, targetEmail, {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false
+      console.log('🔄 Mengirim request reset password ke backend...')
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      
+      const response = await fetch(`${apiUrl}/auth/send-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail })
       })
 
-      console.log('✅ Password reset email sent successfully')
-      setResetMessage('✅ Link reset password sudah dikirim! Cek email Anda (termasuk folder spam).')
-    } catch (err) {
-      console.error('❌ Password reset error:', err.code, err.message)
-      
-      if (err.code === 'auth/invalid-email') {
-        setResetError('❌ Format email tidak valid.')
-      } else if (err.code === 'auth/user-not-found') {
-        setResetError('❌ Email tidak terdaftar di sistem.')
-      } else if (err.code === 'auth/too-many-requests') {
-        setResetError('❌ Terlalu banyak percobaan. Coba lagi dalam beberapa menit.')
-      } else {
-        setResetError(`❌ Error: ${err.message}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Terlalu banyak permintaan. Coba lagi dalam 1 jam.')
+        }
+        throw new Error(data.message || 'Gagal mengirim reset email')
       }
+
+      console.log('✅ Backend response:', data)
+
+      // If link is returned (SendGrid not configured or fallback), show it
+      if (data.link) {
+        setResetMessage(
+          <>
+            <div className="mb-3 text-green-700 font-semibold">✅ Reset link telah dibuat!</div>
+            <div className="mb-3 text-sm text-green-600">Klik tombol di bawah untuk membuka link reset password:</div>
+            <button
+              onClick={() => window.open(data.link, '_blank')}
+              className="w-full py-3 bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700 mb-3"
+            >
+              Buka Link Reset Password
+            </button>
+            <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded break-all border border-gray-200">
+              Atau copy-paste link ini: {data.link}
+            </div>
+          </>
+        )
+      } else {
+        // Email was sent via SendGrid
+        setResetMessage('✅ Link reset password telah dikirim ke email Anda. Cek inbox (atau folder spam/promotions).')
+      }
+    } catch (err) {
+      console.error('❌ Reset password error:', err.message)
+      setResetError(`❌ Gagal: ${err.message}`)
     } finally {
       setResetLoading(false)
     }
