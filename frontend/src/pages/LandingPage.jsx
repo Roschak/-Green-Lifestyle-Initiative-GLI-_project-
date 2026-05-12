@@ -68,6 +68,7 @@ export default function LandingPage() {
   const [show, setShow] = useState([false, false, false])
   const [events, setEvents] = useState([])
   const [articles, setArticles] = useState([])
+  const [boardFilter, setBoardFilter] = useState('berlangsung')
   const [registerModal, setRegisterModal] = useState(null)
   const [detailModal, setDetailModal] = useState(null)
   // ✅ successData menyimpan data lengkap setelah berhasil daftar
@@ -95,7 +96,7 @@ export default function LandingPage() {
 
   const fetchEvents = async () => {
     try {
-      const res = await api.get('/events?visibility=active')
+      const res = await api.get('/events?visibility=landing')
       setEvents(toArray(res.data))
     } catch (err) { console.error('Gagal ambil events:', err) }
   }
@@ -148,6 +149,12 @@ export default function LandingPage() {
       setRegisterModal(null)
     }
   }
+
+  const boardEvents = events.filter(event => {
+    if (boardFilter === 'berlangsung') return event.status === 'dilaksanakan'
+    if (boardFilter === 'berakhir') return event.status === 'berakhir'
+    return true
+  })
 
   return (
     <div className="min-h-screen font-poppins relative"
@@ -228,13 +235,28 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {events.length === 0 ? (
+          <div className="flex gap-3 mb-6">
+            {[
+              { key: 'berlangsung', label: 'Berlangsung' },
+              { key: 'berakhir', label: 'Berakhir' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setBoardFilter(tab.key)}
+                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition ${boardFilter === tab.key ? 'bg-white text-green-800' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {boardEvents.length === 0 ? (
             <div className="text-center py-16 bg-white/5 rounded-[40px] border border-white/10 backdrop-blur-sm">
               <p className="text-white/40 font-black uppercase tracking-widest">Belum ada event</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map(event => {
+              {boardEvents.map(event => {
                 const st = STATUS_MAP[event.status] || STATUS_MAP.roundown
                 const isAdmin = event.host_role === 'admin'
                 return (
@@ -263,12 +285,6 @@ export default function LandingPage() {
                           className="flex-1 py-2.5 bg-white/10 border border-white/20 text-white text-xs font-black rounded-xl hover:bg-white/20 transition">
                           Detail
                         </button>
-                        {event.status === 'roundown' && (
-                          <button onClick={() => handleOpenRegister(event)}
-                            className="flex-1 py-2.5 bg-green-500 text-white text-xs font-black rounded-xl hover:bg-green-600 transition">
-                            Daftar
-                          </button>
-                        )}
                         {event.status === 'dilaksanakan' && (
                           <button className="flex-1 py-2.5 bg-yellow-400 text-yellow-900 text-xs font-black rounded-xl cursor-default">Berlangsung</button>
                         )}

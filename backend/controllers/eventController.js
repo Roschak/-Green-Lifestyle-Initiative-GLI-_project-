@@ -52,6 +52,18 @@ const isActivePublicEvent = (eventData) => {
     return hasPublicAccess && notEndedYet && stillRelevant;
 };
 
+const isRecentEndedEvent = (eventData, days = 7) => {
+    const eventStatus = eventData.status || calculateEventStatus(eventData);
+    if (eventStatus !== 'berakhir') return false;
+
+    const eventEnd = toDate(eventData.event_end);
+    if (!eventEnd) return false;
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return eventEnd >= cutoff;
+};
+
 /**
  * Calculate Event Status based on current time and event schedule
  * LOGIC:
@@ -213,6 +225,12 @@ exports.getAllEvents = async (req, res) => {
 
             const eventItem = { id: doc.id, ...data };
 
+            if (visibility === 'landing') {
+                if (!isActivePublicEvent(eventItem) && !isRecentEndedEvent(eventItem, 7)) {
+                    return;
+                }
+            }
+
             // Hard filter: never expose ended events in active/public board views
             if (visibility === 'active' && eventItem.status === 'berakhir') {
                 return;
@@ -256,6 +274,12 @@ exports.getAllEvents = async (req, res) => {
                     data.status = calculateEventStatus(dataForStatusCalc);
 
                     const eventItem = { id: doc.id, ...data };
+
+                    if (visibility === 'landing') {
+                        if (!isActivePublicEvent(eventItem) && !isRecentEndedEvent(eventItem, 7)) {
+                            return;
+                        }
+                    }
 
                         // Hard filter: never expose ended events in active/public board views
                         if (visibility === 'active' && eventItem.status === 'berakhir') {
