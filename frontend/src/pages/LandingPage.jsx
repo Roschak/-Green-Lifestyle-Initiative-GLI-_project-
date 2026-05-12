@@ -52,11 +52,14 @@ const toArray = (value) => {
 
 // ✅ Komponen Thumbnail reusable - MEMOIZED
 const EventThumb = React.memo(({ event, className = 'w-full h-full' }) => (
-  event.thumbnail_type === 'image' && event.thumbnail
-    ? <img src={getImageUrl(event.thumbnail)} className={`${className} object-cover`} alt={event.title} loading="lazy" />
-    : <div className={`${className} flex items-center justify-center`} style={{ background: event.thumbnail_color || '#22c55e' }}>
+  (() => {
+    const imageUrl = event.thumbnail_type === 'image' ? getImageUrl(event.thumbnail) : null
+    return imageUrl
+      ? <img src={imageUrl} className={`${className} object-cover`} alt={event.title} loading="lazy" />
+      : <div className={`${className} flex items-center justify-center`} style={{ background: event.thumbnail_color || '#22c55e' }}>
       <p className="text-white font-black text-xl text-center px-4 drop-shadow">{event.thumbnail_text || event.title}</p>
-    </div>
+      </div>
+  })()
 ))
 
 export default function LandingPage() {
@@ -289,13 +292,16 @@ export default function LandingPage() {
               <div className="col-span-full text-center py-8 text-white/40">Belum ada artikel</div>
             ) : articles.map((a, i) => (
               <div key={a.id || i} onClick={() => navigate(`/article/${a.id}`)} className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-xl hover:scale-105 transition cursor-pointer">
-                {getImageUrl(a.img || a.image || a.thumbnail) ? (
-                  <img src={getImageUrl(a.img || a.image || a.thumbnail)} className="w-full h-40 object-cover rounded-2xl mb-4" alt={a.title} />
-                ) : (
-                  <div className="w-full h-40 bg-white/10 rounded-2xl mb-4 flex items-center justify-center">
-                    <span className="text-2xl">📰</span>
-                  </div>
-                )}
+                {(() => {
+                  const articleImageUrl = getImageUrl(a.img || a.image || a.thumbnail)
+                  return articleImageUrl ? (
+                    <img src={articleImageUrl} className="w-full h-40 object-cover rounded-2xl mb-4" alt={a.title} loading="lazy" />
+                  ) : (
+                    <div className="w-full h-40 bg-white/10 rounded-2xl mb-4 flex items-center justify-center">
+                      <span className="text-2xl">📰</span>
+                    </div>
+                  )
+                })()}
                 <h3 className="text-lg font-bold text-white mb-2">{a.title}</h3>
                 <p className="text-white/70 text-sm line-clamp-3">{a.description || a.desc || ''}</p>
               </div>

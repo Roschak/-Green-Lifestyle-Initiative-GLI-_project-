@@ -55,7 +55,7 @@ const EventProofUpload = () => {
 
   const checkEventStatus = async () => {
     try {
-      const res = await api.get(`/event/${eventId}/status`);
+      const res = await api.get(`/events/${eventId}/status`);
       setEventStatus(res.data);
       setTimeRemaining(res.data.time_remaining_seconds);
 

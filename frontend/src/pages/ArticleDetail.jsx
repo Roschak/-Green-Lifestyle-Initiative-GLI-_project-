@@ -57,7 +57,7 @@ export default function ArticleDetail() {
         </div>
         {getImageUrl(article.image) && (
           <div className="w-full h-64">
-            <img src={getImageUrl(article.image)} alt={article.title} className="w-full h-full object-cover" />
+            <img src={getImageUrl(article.image)} alt={article.title} className="w-full h-full object-cover" loading="lazy" />
           </div>
         )}
         <div className="p-8">

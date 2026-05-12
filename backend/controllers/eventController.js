@@ -43,10 +43,10 @@ const isActivePublicEvent = (eventData) => {
     const eventEnd = toDate(eventData.event_end);
     const eventStatus = eventData.status || calculateEventStatus(eventData);
 
-    // Public board should show events that are still ongoing or still open for registration.
-    // Match admin behavior: pending events can be visible publicly, but rejected stay hidden.
+    // Public board should only show events that are not finished yet.
+    // Pending/approved events can be visible, but rejected and ended events stay hidden.
     const hasPublicAccess = approvalStatus !== 'rejected';
-    const notEndedYet = eventEnd ? now < eventEnd : eventStatus !== 'berakhir';
+    const notEndedYet = eventStatus !== 'berakhir' && (eventEnd ? now < eventEnd : true);
     const stillRelevant = registrationEnd ? now < registrationEnd || eventStatus === 'dilaksanakan' : eventStatus !== 'berakhir';
 
     return hasPublicAccess && notEndedYet && stillRelevant;
@@ -212,6 +212,12 @@ exports.getAllEvents = async (req, res) => {
             data.status = calculateEventStatus(dataForStatusCalc);
 
             const eventItem = { id: doc.id, ...data };
+
+            // Hard filter: never expose ended events in active/public board views
+            if (visibility === 'active' && eventItem.status === 'berakhir') {
+                return;
+            }
+
             if (visibility === 'active' && !isActivePublicEvent(eventItem)) {
                 return;
             }
@@ -250,6 +256,12 @@ exports.getAllEvents = async (req, res) => {
                     data.status = calculateEventStatus(dataForStatusCalc);
 
                     const eventItem = { id: doc.id, ...data };
+
+                        // Hard filter: never expose ended events in active/public board views
+                        if (visibility === 'active' && eventItem.status === 'berakhir') {
+                            return;
+                        }
+
                     if (visibility === 'active' && !isActivePublicEvent(eventItem)) {
                         return;
                     }

@@ -39,11 +39,14 @@ const fmt = (d) => !d ? '-' : new Date(d).toLocaleDateString('id-ID', { day: 'nu
 
 // Thumbnail reusable
 const EventThumb = ({ event, className = 'w-full h-full' }) => (
-  event.thumbnail_type === 'image' && event.thumbnail
-    ? <img src={getImageUrl(event.thumbnail)} className={`${className} object-cover`} />
-    : <div className={`${className} flex items-center justify-center`} style={{ background: event.thumbnail_color || '#22c55e' }}>
+  (() => {
+    const imageUrl = event.thumbnail_type === 'image' ? getImageUrl(event.thumbnail) : null
+    return imageUrl
+      ? <img src={imageUrl} className={`${className} object-cover`} alt={event.title} loading="lazy" />
+      : <div className={`${className} flex items-center justify-center`} style={{ background: event.thumbnail_color || '#22c55e' }}>
       <p className="text-white font-black text-lg text-center px-3">{event.thumbnail_text || event.title}</p>
-    </div>
+      </div>
+  })()
 )
 
 export default function AdminEvent() {
