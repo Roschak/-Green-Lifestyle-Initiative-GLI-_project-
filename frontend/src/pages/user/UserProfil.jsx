@@ -138,6 +138,7 @@ export default function UserProfil() {
     'DAUR ULANG': { icon: '♻️', bg: 'linear-gradient(135deg,#4ade80,#22c55e)' },
     'PENANAM POHON': { icon: '🌲', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
     'PIONIR HIJAU': { icon: 'trophy', bg: 'rgba(255,255,255,0.12)' },
+    'PARTISIPASI': { icon: '🏅', bg: 'linear-gradient(135deg,#d1fae5,#86efac)' },
     'AKTIVIS ELITE': { icon: 'star', bg: 'rgba(255,255,255,0.12)' },
   }
 
@@ -208,8 +209,8 @@ export default function UserProfil() {
           </div>
           <div className="bg-white rounded-2xl px-6 py-5 text-center">
             <div className="text-xs uppercase tracking-wider text-gray-400 font-extrabold mb-2">AKSI</div>
-            {/* ✅ Show approved actions count from profile */}
-            <div className="text-3xl font-black text-green-400">{profile?.approved || 0}</div>
+            {/* Show total actions (all statuses) if available, otherwise fallback to approved */}
+            <div className="text-3xl font-black text-green-400">{profile?.totalActions ?? profile?.approved ?? 0}</div>
           </div>
         </div>
 

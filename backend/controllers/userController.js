@@ -225,6 +225,67 @@ exports.getUserProfile = async (req, res) => {
             }
         }
 
+        // Build seasonal history from monthly_history collection (if available)
+        const history = [];
+        try {
+            const histSnap = await db.collection('monthly_history').orderBy('year', 'desc').get();
+            histSnap.forEach(doc => {
+                const data = doc.data();
+                const userRecord = data.user_final_rankings && data.user_final_rankings[id];
+                if (userRecord) {
+                    history.push({
+                        period: data.period,
+                        snapshotted_at: data.snapshotted_at && data.snapshotted_at.toDate ? data.snapshotted_at.toDate().toISOString() : null,
+                        rank: userRecord.rank || null,
+                        points: userRecord.points || 0,
+                        made_leaderboard: Boolean(userRecord.made_leaderboard),
+                        medal: userRecord.medal || null
+                    });
+                }
+            });
+        } catch (histErr) {
+            // If monthly_history doesn't exist or query fails, return empty history
+            console.warn('⚠️ Could not load monthly_history:', histErr.message);
+        }
+
+        // Compute total actions and derive medals without mutating DB
+        const totalActions = actions.length;
+
+        // Start with any stored medals on user record (comma separated)
+        const storedMedalsRaw = (user.medal || '').trim();
+        const storedMedals = storedMedalsRaw ? storedMedalsRaw.split(',').map(m => m.trim()).filter(Boolean) : [];
+
+        // Computed medals: ranking-based medal (top 1-20)
+        const computedMedals = [];
+
+        if (ranking && Number.isFinite(ranking) && ranking <= 20) {
+            // Users inside top-20 get a ranking medal
+            computedMedals.push('PIONIR HIJAU');
+        }
+
+        // Merge stored + computed medals, unique preserve order
+        const medalSet = [];
+        for (const m of [...storedMedals, ...computedMedals]) {
+            if (!m) continue;
+            const norm = m.trim();
+            if (!medalSet.includes(norm)) medalSet.push(norm);
+        }
+
+        // Persist medals to DB if changed (safe, non-destructive)
+        try {
+            const newMedalString = medalSet.join(', ');
+            const currentMedalString = (user.medal || '').trim();
+            if (newMedalString && newMedalString !== currentMedalString) {
+                await db.collection('users').doc(id).update({
+                    medal: newMedalString,
+                    updated_at: admin.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ Persisted medals for user ${id}: ${newMedalString}`);
+            }
+        } catch (persistErr) {
+            console.warn('⚠️ Could not persist medals to DB:', persistErr.message);
+        }
+
         return res.json({
             id,
             name: user.name || '',
@@ -232,11 +293,13 @@ exports.getUserProfile = async (req, res) => {
             points: user.points || 0,
             monthlyPoints: user.monthly_points || 0,
             level: user.level || 'Eco-Newbie',
-            medals: user.medal ? user.medal.split(',').map(m => m.trim()) : [],
+            history, // seasonal history of points/ranks
             ranking: ranking,  // null jika tidak ada actions
+            totalActions,
             approved,
             rejected,
-            pending
+            pending,
+            medals: medalSet // array of medal names for frontend display
         });
 
     } catch (err) {
@@ -253,8 +316,19 @@ exports.getUserProfile = async (req, res) => {
  */
 exports.getPublicLeaderboard = async (req, res) => {
     try {
-        // Fallback: Get semua users, filter, sort di memory (paling reliable)
-        console.log('📌 Fetching leaderboard with points filter');
+        // NOTE: Monthly reset automation removed during rollback.
+        // Compute current period locally for display only.
+        const now = new Date();
+        const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const currentPeriod = {
+            month: months[now.getMonth()],
+            monthNum: now.getMonth() + 1,
+            year: now.getFullYear(),
+            period: `${months[now.getMonth()]} ${now.getFullYear()}`
+        };
+
+        console.log('📌 Fetching leaderboard for:', currentPeriod.period);
+
         const snap = await db.collection('users')
             .where('role', '==', 'user')
             .get();
@@ -298,7 +372,8 @@ exports.getPublicLeaderboard = async (req, res) => {
 
         return res.json({
             success: true,
-            period: 'April 2026',
+            period: currentPeriod.period,
+            current_period: currentPeriod,
             data
         });
 
@@ -365,16 +440,9 @@ const awardMedalToUser = async (userId, medalName) => {
         const medalList = currentMedals
             .split(', ')
             .filter(m => m.trim());
-
-        // ✅ Check: medal sudah ada?
-        if (medalList.includes(medalName)) {
-            console.log(`⚠️ User ${userId} sudah punya medal: ${medalName}`);
-            return false;
-        }
-
-        // ✅ Add medal to list
-        medalList.push(medalName);
-        const updatedMedals = medalList.join(', ');
+        const updatedMedals = medalList.includes(medalName)
+            ? medalList.join(', ')
+            : [...medalList, medalName].join(', ');
 
         // Update Firestore
         await db.collection('users').doc(userId).update({
@@ -417,10 +485,6 @@ exports.updateUserProfile = async (req, res) => {
         // Validate & update avatar
         if (avatar) {
             updateData.avatar = avatar; // Should be Cloudinary URL
-        }
-
-        if (Object.keys(updateData).length === 0) {
-            return res.status(400).json({ success: false, message: 'Tidak ada field untuk diupdate' });
         }
 
         updateData.updated_at = admin.firestore.FieldValue.serverTimestamp();

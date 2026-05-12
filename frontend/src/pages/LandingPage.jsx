@@ -1,5 +1,5 @@
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import { Calendar, MapPin, Users, X, User, Phone, Mail, CheckCircle, ExternalLink, Clock } from 'lucide-react'
@@ -9,13 +9,27 @@ const BG_IMAGE = '/images/ricefields.jpeg'
 const fmt = (d) => !d ? '-' : new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 const fmtDT = (d) => !d ? '-' : new Date(d).toLocaleString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-// Helper to get correct image URL
+// Helper to get correct image URL (robust against string 'undefined'/'null')
 const getImageUrl = (img) => {
-  if (!img || img === 'no-image.jpg') return null
-  if (String(img).startsWith('http')) return String(img)
-  const normalized = String(img).replace(/\\/g, '/')
+  if (!img) return null
+  const raw = String(img).trim()
+  if (!raw || raw === 'no-image.jpg' || raw === 'undefined' || raw === 'null') return null
+  if (raw.startsWith('http')) return raw
+
+  const normalized = raw.replace(/\\/g, '/')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
+
+  // Handle Cloudinary-stored public IDs like '/uploads/gli_actions/<public_id>' by converting
+  // them to Cloudinary CDN URLs when a Cloudinary cloud name is available via VITE env.
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dmgypsno6'
+  if (normalized.includes('/uploads/gli_actions/')) {
+    const parts = normalized.split('/uploads/gli_actions/')
+    const publicId = parts[1] ? parts[1].replace(/^\/+/, '') : ''
+    if (!publicId || publicId === 'undefined' || publicId === 'null') return null
+    return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`
+  }
+
   const uploadsIndex = normalized.lastIndexOf('/uploads/')
   if (uploadsIndex >= 0) return `${baseUrl}${normalized.slice(uploadsIndex)}`
   if (normalized.startsWith('uploads/')) return `${baseUrl}/${normalized}`
@@ -36,14 +50,14 @@ const toArray = (value) => {
   return []
 }
 
-// Komponen Thumbnail reusable
-const EventThumb = ({ event, className = 'w-full h-full' }) => (
+// ✅ Komponen Thumbnail reusable - MEMOIZED
+const EventThumb = React.memo(({ event, className = 'w-full h-full' }) => (
   event.thumbnail_type === 'image' && event.thumbnail
-    ? <img src={getImageUrl(event.thumbnail)} className={`${className} object-cover`} />
+    ? <img src={getImageUrl(event.thumbnail)} className={`${className} object-cover`} alt={event.title} loading="lazy" />
     : <div className={`${className} flex items-center justify-center`} style={{ background: event.thumbnail_color || '#22c55e' }}>
       <p className="text-white font-black text-xl text-center px-4 drop-shadow">{event.thumbnail_text || event.title}</p>
     </div>
-)
+))
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -61,9 +75,9 @@ export default function LandingPage() {
   const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {
-    setTimeout(() => setShow([true, false, false]), 500)
-    setTimeout(() => setShow([true, true, false]), 1200)
-    setTimeout(() => setShow([true, true, true]), 1900)
+    setTimeout(() => setShow([true, false, false]), 300)
+    setTimeout(() => setShow([true, true, false]), 700)
+    setTimeout(() => setShow([true, true, true]), 1100)
     fetchEvents()
     fetchArticles()
     // ✅ Jika user sudah login, isi form otomatis
@@ -71,8 +85,8 @@ export default function LandingPage() {
       setForm(f => ({ ...f, name: user.name || '', email: user.email || '' }))
     }
 
-    // ✅ Update time every second
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    // ✅ Update time every 10 seconds (reduced frequency for performance)
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000)
     return () => clearInterval(timer)
   }, [user])
 
@@ -134,13 +148,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen font-poppins relative"
-      style={{ backgroundImage: `url(${BG_IMAGE})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+      style={{ backgroundImage: `url(${BG_IMAGE})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
 
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
 
       <div className="relative z-10">
         {/* NAVBAR */}
-        <nav className="flex justify-between items-center px-16 py-5 bg-white/10 backdrop-blur-2xl border-b border-white/20 shadow-lg sticky top-0 z-50">
+        <nav className="flex justify-between items-center px-16 py-5 bg-white/10 backdrop-blur-sm border-b border-white/20 shadow-md sticky top-0 z-50">
           <h1 className="font-black text-xl text-white">GLI</h1>
           <div className="flex gap-8 text-white text-sm">
             <a href="#home" className="hover:text-green-300 transition">Home</a>
@@ -274,9 +288,9 @@ export default function LandingPage() {
             {articles.length === 0 ? (
               <div className="col-span-full text-center py-8 text-white/40">Belum ada artikel</div>
             ) : articles.map((a, i) => (
-              <div key={a.id || i} className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-xl hover:scale-105 transition">
-                {getImageUrl(a.img) ? (
-                  <img src={getImageUrl(a.img)} className="w-full h-40 object-cover rounded-2xl mb-4" alt={a.title} />
+              <div key={a.id || i} onClick={() => navigate(`/article/${a.id}`)} className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-xl hover:scale-105 transition cursor-pointer">
+                {getImageUrl(a.img || a.image || a.thumbnail) ? (
+                  <img src={getImageUrl(a.img || a.image || a.thumbnail)} className="w-full h-40 object-cover rounded-2xl mb-4" alt={a.title} />
                 ) : (
                   <div className="w-full h-40 bg-white/10 rounded-2xl mb-4 flex items-center justify-center">
                     <span className="text-2xl">📰</span>
@@ -296,7 +310,7 @@ export default function LandingPage() {
 
       {/* ==================== MODAL DETAIL ==================== */}
       {detailModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setDetailModal(null)}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60" onClick={() => setDetailModal(null)}>
           <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="relative h-52">
               <EventThumb event={detailModal} />
@@ -360,7 +374,7 @@ export default function LandingPage() {
 
       {/* ==================== MODAL DAFTAR ==================== */}
       {registerModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={handleCloseRegister}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60" onClick={handleCloseRegister}>
           <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl p-8" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-2">
               <div>
@@ -445,7 +459,7 @@ export default function LandingPage() {
 
       {/* ==================== MODAL SUKSES DAFTAR ==================== */}
       {successData && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60">
           <div className="bg-white rounded-[40px] w-full max-w-sm shadow-2xl p-10 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
               <CheckCircle size={40} className="text-green-500" />
@@ -470,6 +484,25 @@ export default function LandingPage() {
                 className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-black text-sm rounded-2xl hover:bg-green-600 transition mb-3">
                 <ExternalLink size={16} /> Bergabung ke Grup WA
               </a>
+            )}
+
+            {/* ✅ Upload bukti hanya untuk member/login, guest tidak perlu foto */}
+            {successData.event_id && successData.is_gli_member && (
+              <button
+                onClick={() => {
+                  navigate(`/event/${successData.event_id}/proof/${successData.registration_id}`);
+                  setSuccessData(null);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 transition mb-3"
+              >
+                📸 Upload Bukti Kehadiran
+              </button>
+            )}
+
+            {successData.event_id && !successData.is_gli_member && (
+              <div className="bg-gray-50 rounded-2xl p-3 mt-4 mb-3 text-xs text-gray-500 font-bold">
+                👤 Guest tidak perlu upload foto. Registrasi sudah selesai.
+              </div>
             )}
 
             {/* Info kalau WA belum tersedia (event masih roundown) */}

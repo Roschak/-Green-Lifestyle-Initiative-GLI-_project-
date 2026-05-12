@@ -1,6 +1,7 @@
 // backend/controllers/adminController.js
 const db = require('../config/db');
 const admin = require('firebase-admin');
+const { deleteImage } = require('../utils/cloudinaryHelper');
 
 exports.getDashboardStats = async (req, res) => {
     try {
@@ -338,6 +339,23 @@ exports.getUserDetail = async (req, res) => {
             }
 
             await actionRef.update(updateData);
+
+            // After action is evaluated, delete associated photo from Cloudinary (best-effort)
+            try {
+                const img = actionData.img || actionData.image || actionData.photo || actionData.photo_url || actionData.proof_img;
+                if (img) {
+                    const del = await deleteImage(img);
+                    if (del.success) {
+                        // remove image reference in Firestore to avoid stale links
+                        await actionRef.update({ img: null, image: null, photo: null, photo_url: null, proof_img: null, photo_deleted_at: admin.firestore.FieldValue.serverTimestamp() });
+                        console.log('🗑️ Deleted Cloudinary image for action', id, del.publicId);
+                    } else {
+                        console.warn('⚠️ Could not delete Cloudinary image for action', id, del.error || del);
+                    }
+                }
+            } catch (errDel) {
+                console.error('❌ Error deleting cloudinary image after verifyAction:', errDel.message || errDel);
+            }
 
             console.log('✅ Action verified:', id, status);
 

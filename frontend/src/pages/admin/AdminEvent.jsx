@@ -8,11 +8,13 @@ import api from '../../services/api'
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 const EVENT_DRAFT_KEY = 'gli_admin_event_draft'
 
-// Helper to get correct image URL
+// Helper to get correct image URL (robust against string 'undefined'/'null')
 const getImageUrl = (img) => {
-  if (!img || img === 'no-image.jpg') return null
-  if (String(img).startsWith('http')) return String(img)
-  const normalized = String(img).replace(/\\/g, '/')
+  if (!img) return null
+  const raw = String(img).trim()
+  if (!raw || raw === 'no-image.jpg' || raw === 'undefined' || raw === 'null') return null
+  if (raw.startsWith('http')) return raw
+  const normalized = String(raw).replace(/\\/g, '/')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
   const uploadsIndex = normalized.lastIndexOf('/uploads/')

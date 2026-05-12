@@ -1,5 +1,39 @@
 const db = require('../config/db');
 
+// Helper: normalize image/thumbnail values to full Cloudinary URL when needed
+function normalizeImageUrl(val) {
+  if (!val) return val;
+  // already a full URL
+  if (typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'))) {
+    return val;
+  }
+  // values like '/uploads/gli_actions/<public_id>' or '/uploads/<filename>'
+  if (typeof val === 'string' && val.startsWith('/uploads/')) {
+    // extract public id part after '/uploads/'
+    const parts = val.split('/uploads/');
+    const publicId = parts[1] || parts[0];
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+    return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+  }
+  // if it's an object from multer/Cloudinary storage, try to read secure_url or public_id
+  if (typeof val === 'object') {
+    if (val.secure_url) return val.secure_url;
+    if (val.public_id) {
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+      return `https://res.cloudinary.com/${cloudName}/image/upload/${val.public_id}`;
+    }
+  }
+  return val;
+}
+
+function normalizeArticleForResponse(article) {
+  if (!article) return article;
+  const normalized = { ...article };
+  if (normalized.image) normalized.image = normalizeImageUrl(normalized.image);
+  if (normalized.thumbnail) normalized.thumbnail = normalizeImageUrl(normalized.thumbnail);
+  return normalized;
+}
+
 // Create new article
 exports.createArticle = async (req, res) => {
   try {
@@ -37,19 +71,40 @@ exports.createArticle = async (req, res) => {
     // Handle file upload - supports both Cloudinary and local storage
     let imageUrl = '/images/default-article.png';
     if (req.file) {
-      // Cloudinary storage returns secure_url
+      console.log('📸 File object:', { 
+        secure_url: req.file.secure_url,
+        public_id: req.file.public_id,
+        filename: req.file.filename,
+        path: req.file.path,
+        destination: req.file.destination
+      });
+      
+      // Cloudinary storage - try secure_url first (CloudinaryStorage v4+)
       if (req.file.secure_url) {
         imageUrl = req.file.secure_url;
       } 
+      // Cloudinary fallback: use public_id if available
+      else if (req.file.public_id) {
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+        imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${req.file.public_id}`;
+      }
+      // Cloudinary fallback: construct URL if public_id is encoded in filename
+      else if (req.file.filename && (req.file.filename.includes('gli_actions') || req.file.filename.match(/^[a-z0-9]+$/))) {
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+        const publicId = req.file.filename.includes('/') 
+          ? req.file.filename.split('/gli_actions/')[1] 
+          : req.file.filename;
+        imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+      }
       // Local disk storage returns filename
-      else if (req.file.filename) {
+      else if (req.file.filename && !req.file.secure_url) {
         imageUrl = `/uploads/${req.file.filename}`;
       }
       // Memory storage - shouldn't reach here for articles, but handle it
       else if (req.file.path) {
         imageUrl = req.file.path;
       }
-      console.log('📸 Image uploaded:', imageUrl);
+      console.log('✅ Image URL resolved to:', imageUrl);
     }
 
     const article = {
@@ -154,9 +209,12 @@ exports.getAllArticles = async (req, res) => {
     const startIndex = (page - 1) * limit;
     const paginatedArticles = allArticles.slice(startIndex, startIndex + parseInt(limit));
 
+    // Normalize image URLs before returning
+    const normalized = paginatedArticles.map(a => normalizeArticleForResponse(a));
+
     res.json({
       success: true,
-      articles: paginatedArticles,
+      articles: normalized,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -189,14 +247,20 @@ exports.getArticleById = async (req, res) => {
 
     const article = doc.data();
 
-    // Increment views
-    await db.collection('articles').doc(id).update({
-      views: (article.views || 0) + 1
-    });
+    // Increment views (non-blocking for response consistency)
+    try {
+      await db.collection('articles').doc(id).update({
+        views: (article.views || 0) + 1
+      });
+    } catch (e) {
+      console.warn('Failed to increment article views:', e.message);
+    }
+
+    const normalizedArticle = normalizeArticleForResponse(article);
 
     res.json({
       success: true,
-      article: { id, ...article }
+      article: { id, ...normalizedArticle }
     });
   } catch (error) {
     console.error('Error getting article:', error);
@@ -240,13 +304,34 @@ exports.updateArticle = async (req, res) => {
 
     let imageUrl;
     if (req.file) {
+      console.log('📸 File object:', { 
+        secure_url: req.file.secure_url,
+        public_id: req.file.public_id,
+        filename: req.file.filename,
+        path: req.file.path
+      });
+      
       if (req.file.secure_url) {
         imageUrl = req.file.secure_url;
-      } else if (req.file.filename) {
+      } 
+      else if (req.file.public_id) {
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+        imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${req.file.public_id}`;
+      }
+      else if (req.file.filename && (req.file.filename.includes('gli_actions') || req.file.filename.match(/^[a-z0-9]+$/))) {
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dmgypsno6';
+        const publicId = req.file.filename.includes('/') 
+          ? req.file.filename.split('/gli_actions/')[1] 
+          : req.file.filename;
+        imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+      }
+      else if (req.file.filename && !req.file.secure_url) {
         imageUrl = `/uploads/${req.file.filename}`;
-      } else if (req.file.path) {
+      } 
+      else if (req.file.path) {
         imageUrl = req.file.path;
       }
+      console.log('✅ Image URL resolved to:', imageUrl);
     }
 
     const updateData = {
@@ -351,9 +436,11 @@ exports.getAdminArticles = async (req, res) => {
       });
     });
 
+    const normalized = articles.map(a => normalizeArticleForResponse(a));
+
     res.json({
       success: true,
-      articles,
+      articles: normalized,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

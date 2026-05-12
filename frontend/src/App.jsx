@@ -10,6 +10,8 @@ import AdminMonitoring from './pages/admin/AdminMonitoring'
 import AdminProfil from './pages/admin/AdminProfil'
 import AdminEvent from './pages/admin/AdminEvent'
 import AdminArticle from './pages/admin/AdminArticle'
+import ArticleDetail from './pages/ArticleDetail'
+import EventProofUpload from './pages/EventProofUpload'
 import UserDashboard from './pages/user/UserDashboard'
 import UserAksi from './pages/user/UserAksi'
 import UserRiwayat from './pages/user/UserRiwayat'
@@ -41,6 +43,8 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/article/:id" element={<ArticleDetail />} />
+      <Route path="/event/:eventId/proof/:registrationId" element={<EventProofUpload />} />
       <Route path="/admin/dashboard" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/moderasi" element={<ProtectedRoute requireAdmin><AdminModerasi /></ProtectedRoute>} />
       <Route path="/admin/monitoring" element={<ProtectedRoute requireAdmin><AdminMonitoring /></ProtectedRoute>} />

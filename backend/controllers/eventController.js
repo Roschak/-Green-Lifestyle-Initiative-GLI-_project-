@@ -3,6 +3,8 @@
 const db = require('../config/db');
 const admin = require('firebase-admin');
 const path = require('path');
+const { deleteImage } = require('../utils/cloudinaryHelper');
+const { awardMedalToUser } = require('./userController');
 
 const resolveUploadedImageUrl = (file) => {
     if (!file) return null;
@@ -313,11 +315,13 @@ exports.registerToEvent = async (req, res) => {
             success: true,
             message: 'Berhasil mendaftar event!',
             registrationId: docRef.id,
+            event_id: event_id,  // ✅ Return event_id untuk upload link
             event_title: eventData?.title || '',
             is_gli_member: is_gli_member ? 1 : 0,
             medal_name: eventData?.medal_name || 'Medali Digital GLI',
             wa_link: eventData?.wa_link || null, // ✅ Return WA link immediately
-            event_status: eventData?.status || 'roundown'
+            event_status: eventData?.status || 'roundown',
+            proof_status: 'pending'  // ✅ Return initial proof status
         });
 
     } catch (err) {
@@ -574,6 +578,29 @@ exports.uploadAttendanceProof = async (req, res) => {
 
         console.log('✅ Attendance recorded:', docRef.id);
 
+        // Award medals for attendance (persisted) — only for registered members
+        try {
+            const regRef = db.collection('event_registrations').doc(registration_id);
+            const regDoc = await regRef.get();
+            if (regDoc.exists) {
+                const regData = regDoc.data();
+                const uid = regData.user_id || null;
+                const isMember = regData.is_gli_member === 1;
+                const medalAlready = !!regData.medal_awarded;
+
+                if (isMember && uid && !medalAlready) {
+                    // Award participation medal
+                    await awardMedalToUser(uid, 'PARTISIPASI');
+
+                    // Mark registration as medal awarded to avoid duplicates
+                    await regRef.update({ medal_awarded: true });
+                    console.log(`✅ Medals awarded for registration ${registration_id} (user ${uid})`);
+                }
+            }
+        } catch (medalErr) {
+            console.error('❌ Error awarding medals after attendance proof:', medalErr);
+        }
+
         return res.status(201).json({
             success: true,
             message: 'Kehadiran berhasil dicatat!',
@@ -782,17 +809,26 @@ exports.cleanupOldPhotos = async (req, res) => {
 
         for (const doc of snapshot.docs) {
             const action = doc.data();
-            if (action.img) {
+            const img = action.img || action.image || action.photo || action.photo_url || action.proof_img;
+            if (img) {
                 try {
-                    // Update Firestore - remove photo URL, keep metadata
-                    await doc.ref.update({
-                        img: null,
-                        photo_deleted_at: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                    deletedCount++;
-                    console.log('🗑️ Photo deleted (old action):', doc.id);
+                    const del = await deleteImage(img);
+                    if (del.success) {
+                        await doc.ref.update({
+                            img: null,
+                            image: null,
+                            photo: null,
+                            photo_url: null,
+                            proof_img: null,
+                            photo_deleted_at: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        deletedCount++;
+                        console.log('🗑️ Deleted Cloudinary photo for action:', doc.id, del.publicId);
+                    } else {
+                        console.warn('⚠️ Could not delete Cloudinary photo for action', doc.id, del.error || del);
+                    }
                 } catch (err) {
-                    console.error('⚠️ Error deleting photo:', err.message);
+                    console.error('⚠️ Error deleting photo:', err.message || err);
                 }
             }
         }

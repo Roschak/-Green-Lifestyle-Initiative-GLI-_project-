@@ -8,9 +8,11 @@ const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 
 const getImageUrl = (action) => {
   const source = action?.img || action?.imageUrl || action?.proof_img || action?.photo_url || action?.photo
-  if (!source || source === 'no-image.jpg') return null
-  if (String(source).startsWith('http')) return String(source)
-  const normalized = String(source).replace(/\\/g, '/').replace(/^\/+/, '')
+  if (!source) return null
+  const raw = String(source).trim()
+  if (!raw || raw === 'no-image.jpg' || raw === 'undefined' || raw === 'null') return null
+  if (raw.startsWith('http')) return raw
+  const normalized = String(raw).replace(/\\/g, '/').replace(/^\/+/, '')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   return `${apiUrl.replace('/api', '')}/${normalized}`
 }

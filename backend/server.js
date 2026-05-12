@@ -137,34 +137,14 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`📝 Firebase Project ID: ${process.env.FIREBASE_PROJECT_ID || 'NOT SET'}`);
   });
 
-  // Handle EADDRINUSE by trying alternative ports
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      const altPorts = [5001, 5002, 5003, 5004, 5005];
-      let portFound = false;
-      for (const altPort of altPorts) {
-        try {
-          const altServer = app.listen(altPort, () => {
-            console.log(`⚠️  Port ${PORT} in use, switching to ${altPort}`);
-            console.log(`🚀 Backend running on http://localhost:${altPort}`);
-            console.log(`✅ CORS enabled`);
-            console.log(`📝 NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`📝 Firebase Project ID: ${process.env.FIREBASE_PROJECT_ID || 'NOT SET'}`);
-          });
-          portFound = true;
-          break;
-        } catch (e) {
-          // Try next port
-        }
-      }
-      if (!portFound) {
-        console.error('❌ Could not find available port. Please kill processes using ports 5000-5005.');
-        process.exit(1);
-      }
-    } else {
-      console.error('Server error:', err);
+      console.error(`❌ Port ${PORT} is already in use. Stop the existing Node process, then start the backend again.`);
       process.exit(1);
     }
+
+    console.error('❌ Server listen error:', err.message);
+    process.exit(1);
   });
 }
 

@@ -186,8 +186,8 @@ export default function LoginPage() {
         <img src="/images/pohon.jpg" alt="" className="absolute inset-0 w-full h-full object-cover blur-xl scale-110"/>
         <div className="absolute inset-0 bg-black/20"/>
         <div className="relative z-10 flex items-center justify-center h-full p-10">
-          <button onClick={() => navigate(-1)}
-            className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all z-20">
+          <button onClick={() => { try { navigate(-1) } catch { navigate('/') } }}
+            className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all z-20 enabled:active:scale-95">
             <ArrowLeft size={18}/><span className="text-sm font-medium">Back</span>
           </button>
           <div className="w-full max-w-md">

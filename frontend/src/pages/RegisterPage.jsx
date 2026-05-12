@@ -172,8 +172,8 @@ export default function RegisterPage() {
         <div className="relative z-10 flex items-center justify-center h-full p-10 overflow-y-auto">
           {/* ✅ TOMBOL BACK - GLASS EFFECT */}
           <button
-            onClick={() => navigate(-1)}
-            className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all z-20"
+            onClick={() => { try { navigate(-1) } catch { navigate('/') } }}
+            className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all z-20 enabled:active:scale-95 disabled:opacity-50"
           >
             <ArrowLeft size={18} />
             <span className="text-sm font-medium">Back</span>

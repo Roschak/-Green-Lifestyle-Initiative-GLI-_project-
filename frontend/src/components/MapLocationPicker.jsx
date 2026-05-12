@@ -2,6 +2,43 @@ import { useState } from 'react'
 import { Map, Marker } from 'pigeon-maps'
 import { MapPin, Loader2, Navigation } from 'lucide-react'
 
+const formatAddressParts = (address = {}) => {
+  const parts = [
+    address.road,
+    address.neighbourhood,
+    address.suburb,
+    address.village,
+    address.town,
+    address.city,
+    address.county,
+    address.state,
+  ].filter(Boolean)
+
+  if (parts.length > 0) {
+    const uniqueParts = [...new Set(parts.map((item) => String(item).trim()).filter(Boolean))]
+    return uniqueParts.slice(0, 4).join(', ')
+  }
+
+  return ''
+}
+
+const formatSuggestionLabel = (result) => {
+  const address = result?.address || {}
+  const preferred = [
+    address.suburb,
+    address.city_district,
+    address.city,
+    address.county,
+    address.state,
+  ].filter(Boolean)
+
+  if (preferred.length > 0) {
+    return [...new Set(preferred.map((item) => String(item).trim()).filter(Boolean))].join(', ')
+  }
+
+  return result?.display_name?.split(',')?.slice(0, 2)?.join(', ') || result?.display_name || ''
+}
+
 const parseInitialPosition = (initialLocation) => {
   if (
     initialLocation &&
@@ -18,7 +55,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const [zoom, setZoom] = useState(13)
   const [loading, setLoading] = useState(false)
   const [address, setAddress] = useState(initialLocation?.address || 'Klik di peta untuk memilih lokasi')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialLocation?.address || '')
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
@@ -41,20 +78,17 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const reverseGeocode = async (lat, lng) => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=id`
       )
       const data = await response.json()
       const locationName =
+        formatAddressParts(data.address) ||
         data.display_name ||
-        data.address?.road ||
-        data.address?.village ||
-        data.address?.city ||
-        data.address?.county ||
         `${lat.toFixed(6)}, ${lng.toFixed(6)}`
       applyLocation(lat, lng, locationName)
     } catch (err) {
       console.error('Reverse geocoding error:', err)
-      applyLocation(lat, lng, `${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+      applyLocation(lat, lng, 'Lokasi terpilih')
     }
   }
 
@@ -67,11 +101,13 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
 
     setSearchLoading(true)
     try {
+      const isIndonesiaQuery = /jakarta|bandung|surabaya|indonesia|jawa|bali|medan|semarang|makassar/i.test(query)
+      const countryParam = isIndonesiaQuery ? '&countrycodes=id' : ''
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}${countryParam}&addressdetails=1&dedupe=1&limit=8&accept-language=id`
       )
       const data = await response.json()
-      setSuggestions(data)
+      setSuggestions(Array.isArray(data) ? data : [])
       setShowSuggestions(true)
     } catch (err) {
       console.error('Search error:', err)
@@ -97,7 +133,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const selectFromSearch = (result) => {
     const lat = parseFloat(result.lat)
     const lng = parseFloat(result.lon)
-    const name = result.display_name
+    const name = formatSuggestionLabel(result) || result.display_name
 
     setZoom(15)
     applyLocation(lat, lng, name)
@@ -193,7 +229,8 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
       <div className="flex items-start gap-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
         <MapPin size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
         <div className="text-xs">
-          <p className="font-semibold text-blue-900">Koordinat: {address}</p>
+          <p className="font-semibold text-blue-900">Lokasi: {address}</p>
+          <p className="text-blue-700 mt-1">Koordinat: {position[0].toFixed(6)}, {position[1].toFixed(6)}</p>
           <p className="text-blue-700 mt-1">💡 Cari lokasi, klik di peta, atau gunakan "Lokasi Saya" untuk GPS</p>
         </div>
       </div>

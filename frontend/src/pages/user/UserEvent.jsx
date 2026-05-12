@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import UserSidebar from '../../components/UserSidebar'
 import MapLocationPicker from '../../components/MapLocationPicker'
 import { Plus, X, Calendar, Users, CheckCircle, XCircle, Upload, Eye, Bell, ExternalLink, Camera, MapPin } from 'lucide-react'
@@ -8,11 +9,13 @@ import api from '../../services/api'
 const BG = 'linear-gradient(180deg, #004D40 0%, #2E7D32 100%)'
 const EVENT_DRAFT_KEY = 'gli_user_event_draft'
 
-// Helper to get correct image URL
+// Helper to get correct image URL (robust against string 'undefined'/'null')
 const getImageUrl = (img) => {
-  if (!img || img === 'no-image.jpg') return null
-  if (String(img).startsWith('http')) return String(img)
-  const normalized = String(img).replace(/\\/g, '/')
+  if (!img) return null
+  const raw = String(img).trim()
+  if (!raw || raw === 'no-image.jpg' || raw === 'undefined' || raw === 'null') return null
+  if (raw.startsWith('http')) return raw
+  const normalized = String(raw).replace(/\\/g, '/')
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
   const baseUrl = apiUrl.replace('/api', '')
   const uploadsIndex = normalized.lastIndexOf('/uploads/')
@@ -46,6 +49,7 @@ const EventThumb = ({ event, className = 'w-full h-full' }) => (
 
 export default function UserEvent() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [allEvents, setAllEvents] = useState([])
   const [myEvents, setMyEvents] = useState({ roundown: [], dilaksanakan: [], berakhir: [] })
   const [loading, setLoading] = useState(true)
@@ -504,7 +508,7 @@ export default function UserEvent() {
               <table className="w-full">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b border-gray-50">
-                    {['Nama', 'Email', 'Status GLI', 'Bukti Foto'].map(h => (
+                    {['Nama', 'Email', 'Status GLI', 'Bukti Foto', 'Verifikasi'].map(h => (
                       <th key={h} className="text-left text-[9px] font-black text-gray-300 uppercase tracking-widest py-4 px-4">{h}</th>
                     ))}
                   </tr>
@@ -525,6 +529,13 @@ export default function UserEvent() {
                             <img src={getImageUrl(reg.proof_img)} className="w-full h-full object-cover" />
                           </a>
                         ) : <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300"><Camera size={14} /></div>}
+                      </td>
+                      <td className="py-3 px-4">
+                        {reg.proof_img ? (
+                          <span className="text-[9px] font-black px-2 py-1 rounded-full bg-green-100 text-green-700 uppercase">✅ Terverifikasi</span>
+                        ) : (
+                          <span className="text-[9px] font-black px-2 py-1 rounded-full bg-orange-100 text-orange-700 uppercase">⏳ Belum</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -561,6 +572,23 @@ export default function UserEvent() {
                 className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-black text-sm rounded-2xl hover:bg-green-600 transition mb-3">
                 <ExternalLink size={16} /> Bergabung ke Grup WA
               </a>
+            )}
+            {successData.event_id && successData.is_gli_member && (
+              <button
+                onClick={() => {
+                  navigate(`/event/${successData.event_id}/proof/${successData.registration_id}`);
+                  setSuccessData(null);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 transition mb-3"
+              >
+                📸 Upload Bukti Kehadiran
+              </button>
+            )}
+
+            {successData.event_id && !successData.is_gli_member && (
+              <div className="bg-gray-50 rounded-2xl p-3 mt-3 mb-3 text-xs text-gray-500 font-bold">
+                👤 Guest tidak perlu upload foto.
+              </div>
             )}
             {!successData.wa_link && (
               <p className="text-gray-400 text-xs mb-4">Link WA akan tersedia saat event mulai.</p>
