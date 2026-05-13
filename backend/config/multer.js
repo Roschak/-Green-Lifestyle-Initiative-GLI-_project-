@@ -54,9 +54,19 @@ if (hasCloudinary) {
 } else {
   console.log('⚠️ Cloudinary not configured, using local disk storage for uploads');
 
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+  // Use a safe writable temp directory (works on serverless) or allow override via env
+  const os = require('os');
+  const uploadsDir = process.env.UPLOADS_DIR || path.join(os.tmpdir(), 'uploads');
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  } catch (mkdirErr) {
+    console.error('❌ Could not create uploads dir:', uploadsDir, mkdirErr.message);
+    // Fall back to memory storage to avoid EROFS on read-only filesystems
+    upload = multer({ storage: multer.memoryStorage() });
+    module.exports = upload;
+    return;
   }
 
   const storage = multer.diskStorage({
