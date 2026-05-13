@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const path = require('path');
 const { deleteImage } = require('../utils/cloudinaryHelper');
 const { awardMedalToUser } = require('./userController');
+const { uploadToFirebaseStorage } = require('../config/firebaseStorage');
 
 const resolveUploadedImageUrl = (file) => {
     if (!file) return null;
@@ -138,7 +139,20 @@ exports.createEvent = async (req, res) => {
         // Upload thumbnail jika ada
         let thumbnailUrl = null;
         if (req.file) {
-            thumbnailUrl = resolveUploadedImageUrl(req.file);
+            // If multer used memoryStorage (buffer available), upload buffer to Firebase Storage
+            if (req.file.buffer) {
+                try {
+                    const fileName = req.file.originalname || `event-${Date.now()}.jpg`;
+                    thumbnailUrl = await uploadToFirebaseStorage(req.file.buffer, fileName, 'events');
+                    console.log('✅ Uploaded thumbnail buffer to Firebase Storage:', thumbnailUrl);
+                } catch (upErr) {
+                    console.error('❌ Failed uploading thumbnail buffer to Firebase Storage:', upErr.message);
+                    // Fallback to resolving existing object (may be Cloudinary object)
+                    thumbnailUrl = resolveUploadedImageUrl(req.file);
+                }
+            } else {
+                thumbnailUrl = resolveUploadedImageUrl(req.file);
+            }
         } else if ((thumbnail_type || 'image') === 'image') {
             return res.status(400).json({
                 success: false,
@@ -378,7 +392,19 @@ exports.uploadProof = async (req, res) => {
 
         // Validasi file upload
         if (req.file) {
-            proofUrl = resolveUploadedImageUrl(req.file);
+            if (req.file.buffer) {
+                try {
+                    const fileName = req.file.originalname || `proof-${Date.now()}.jpg`;
+                    proofUrl = await uploadToFirebaseStorage(req.file.buffer, fileName, 'proofs');
+                    console.log('✅ Proof uploaded (buffer->Firebase):', proofUrl);
+                } catch (upErr) {
+                    console.error('❌ Firebase upload failed for proof:', upErr.message);
+                    // Fallback to resolver (e.g., Cloudinary object)
+                    proofUrl = resolveUploadedImageUrl(req.file);
+                }
+            } else {
+                proofUrl = resolveUploadedImageUrl(req.file);
+            }
             console.log('✅ Proof uploaded:', proofUrl);
         } else {
             return res.status(400).json({ success: false, message: 'Gambar wajib diupload' });
@@ -573,7 +599,18 @@ exports.uploadAttendanceProof = async (req, res) => {
 
         let proofUrl = null;
         if (req.file) {
-            proofUrl = resolveUploadedImageUrl(req.file);
+            if (req.file.buffer) {
+                try {
+                    const fileName = req.file.originalname || `attendance-${Date.now()}.jpg`;
+                    proofUrl = await uploadToFirebaseStorage(req.file.buffer, fileName, 'attendance_proofs');
+                    console.log('✅ Attendance proof uploaded (buffer->Firebase):', proofUrl);
+                } catch (upErr) {
+                    console.error('❌ Firebase upload failed for attendance proof:', upErr.message);
+                    proofUrl = resolveUploadedImageUrl(req.file);
+                }
+            } else {
+                proofUrl = resolveUploadedImageUrl(req.file);
+            }
             console.log('✅ Attendance proof uploaded:', proofUrl);
         } else {
             return res.status(400).json({

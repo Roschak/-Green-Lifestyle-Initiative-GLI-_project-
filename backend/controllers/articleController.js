@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { uploadToFirebaseStorage } = require('../config/firebaseStorage');
 
 // Helper: normalize image/thumbnail values to full Cloudinary URL when needed
 function normalizeImageUrl(val) {
@@ -68,7 +69,7 @@ exports.createArticle = async (req, res) => {
       isFeatured = featured === 'true' || featured === '1';
     }
 
-    // Handle file upload - supports both Cloudinary and local storage
+    // Handle file upload - supports Cloudinary, Firebase Storage, and buffer-based uploads
     let imageUrl = '/images/default-article.png';
     if (req.file) {
       console.log('📸 File object:', { 
@@ -101,6 +102,15 @@ exports.createArticle = async (req, res) => {
         imageUrl = `/uploads/${req.file.filename}`;
       }
       // Memory storage - shouldn't reach here for articles, but handle it
+      else if (req.file.buffer) {
+        try {
+          const fileName = req.file.originalname || 'article-image.jpg';
+          imageUrl = await uploadToFirebaseStorage(req.file.buffer, fileName, 'articles');
+        } catch (storageErr) {
+          console.error('❌ Firebase Storage upload failed, falling back to default image:', storageErr.message);
+          imageUrl = '/images/default-article.png';
+        }
+      }
       else if (req.file.path) {
         imageUrl = req.file.path;
       }
@@ -328,6 +338,14 @@ exports.updateArticle = async (req, res) => {
       else if (req.file.filename && !req.file.secure_url) {
         imageUrl = `/uploads/${req.file.filename}`;
       } 
+      else if (req.file.buffer) {
+        try {
+          const fileName = req.file.originalname || 'article-image.jpg';
+          imageUrl = await uploadToFirebaseStorage(req.file.buffer, fileName, 'articles');
+        } catch (storageErr) {
+          console.error('❌ Firebase Storage upload failed, falling back to existing image:', storageErr.message);
+        }
+      }
       else if (req.file.path) {
         imageUrl = req.file.path;
       }
