@@ -7,7 +7,7 @@ const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 const buildCacheKey = (prefix, params) => `${prefix}:${Object.keys(params).map(k=>`${k}=${params[k]}`).join('&')}`;
 
-const forwardFetch = async (url) => {
+const forwardFetchJson = async (url) => {
   const headers = {
     'User-Agent': process.env.NOMINATIM_USER_AGENT || 'GLI-Project-Web/1.0 (contact@example.com)'
   };
@@ -27,10 +27,9 @@ const forwardFetch = async (url) => {
     if (!text) return [];
     
     try {
-      const data = JSON.parse(text);
-      return Array.isArray(data) ? data : [];
+      return JSON.parse(text);
     } catch (e) {
-      console.warn('JSON parse error, returning empty array');
+      console.warn('JSON parse error, returning empty response');
       return [];
     }
   } catch (err) {
@@ -52,7 +51,7 @@ router.get('/reverse', async (req, res) => {
     }
 
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=id`;
-    const data = await forwardFetch(url);
+    const data = await forwardFetchJson(url);
 
     cache.set(key, { ts: Date.now(), data });
     res.json(data);
@@ -79,10 +78,11 @@ router.get('/search', async (req, res) => {
       url += `&countrycodes=${encodeURIComponent(countrycodes)}`;
     }
     console.log('🔍 Geocode search for:', q, 'url:', url.substring(0, 100));
-    const data = await forwardFetch(url);
-    console.log('✅ Got', Array.isArray(data) ? data.length + ' items' : 'no items');
-    cache.set(key, { ts: Date.now(), data });
-    res.json(Array.isArray(data) ? data : []);
+    const data = await forwardFetchJson(url);
+    const results = Array.isArray(data) ? data : [];
+    console.log('✅ Got', results.length + ' items');
+    cache.set(key, { ts: Date.now(), data: results });
+    res.json(results);
   } catch (err) {
     console.error('❌ Search error:', err.message);
     res.json([]);

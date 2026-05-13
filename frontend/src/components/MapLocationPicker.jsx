@@ -39,6 +39,21 @@ const formatSuggestionLabel = (result) => {
   return result?.display_name?.split(',')?.slice(0, 2)?.join(', ') || result?.display_name || ''
 }
 
+const getSuggestionTitle = (result) => {
+  const label = formatSuggestionLabel(result)
+  if (label) return label
+
+  if (typeof result?.display_name === 'string' && result.display_name.trim()) {
+    return result.display_name.split(',')[0].trim()
+  }
+
+  if (typeof result?.name === 'string' && result.name.trim()) {
+    return result.name.trim()
+  }
+
+  return ''
+}
+
 const parseInitialPosition = (initialLocation) => {
   if (
     initialLocation &&
@@ -62,11 +77,17 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const searchTimerRef = useRef(null)
   const lastBoundsChangeRef = useRef(0)
 
+  const isCoordinateText = (value) => /^\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/.test(String(value || ''))
+
   const applyLocation = (lat, lng, locationName) => {
     setPosition([lat, lng])
-    const resolvedName = locationName || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    const resolvedName = locationName && !isCoordinateText(locationName)
+      ? locationName
+      : 'Lokasi dipilih'
     setAddress(resolvedName)
-    const locationLabel = (resolvedName.split(',')[0] || resolvedName).trim()
+    const locationLabel = resolvedName === 'Lokasi dipilih'
+      ? resolvedName
+      : (resolvedName.split(',')[0] || resolvedName).trim()
     setSearchQuery(locationLabel)
     setSuggestions([])
     setShowSuggestions(false)
@@ -98,13 +119,12 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
         }
       }
 
-      if (!locationName) locationName = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      if (!locationName) locationName = 'Lokasi dipilih'
       applyLocation(lat, lng, locationName)
     } catch (err) {
       console.error('Reverse geocoding error:', err)
-      // Fallback to coordinates so the selection is meaningful in the form
-      const coordLabel = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-      applyLocation(lat, lng, coordLabel)
+      // Keep a human-friendly label even if geocoding fails
+      applyLocation(lat, lng, 'Lokasi dipilih')
     }
   }
 
@@ -112,6 +132,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const searchLocation = async (query) => {
     if (!query.trim() || query.length < 2) {
       setSuggestions([])
+      setShowSuggestions(false)
       return
     }
 
@@ -140,6 +161,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
     } catch (err) {
       console.error('❌ Search error:', err)
       setSuggestions([])
+      setShowSuggestions(false)
     } finally {
       setSearchLoading(false)
     }
@@ -163,7 +185,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const selectFromSearch = (result) => {
     const lat = parseFloat(result.lat)
     const lng = parseFloat(result.lon)
-    const name = formatSuggestionLabel(result) || result.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    const name = formatSuggestionLabel(result) || result.display_name || 'Lokasi dipilih'
 
     setZoom(15)
     applyLocation(lat, lng, name)
@@ -214,6 +236,14 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
           placeholder="Cari lokasi (cth: Jakarta, Bandung, Malang...)"
           value={searchQuery}
           onChange={handleSearchChange}
+          onFocus={() => {
+            if (searchQuery.trim() && suggestions.length > 0) {
+              setShowSuggestions(true)
+            } else if (searchQuery.trim().length >= 2) {
+              searchLocation(searchQuery)
+            }
+          }}
+          autoComplete="off"
           className="w-full bg-gray-50 border-2 border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-blue-500 outline-none"
         />
         {searchLoading && <Loader2 size={16} className="animate-spin absolute right-3 top-2.5 text-gray-400" />}
@@ -228,8 +258,8 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
                 onClick={() => selectFromSearch(result)}
                 className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition"
               >
-                <p className="text-sm font-medium text-gray-700 truncate">{result.display_name.split(',')[0]}</p>
-                <p className="text-xs text-gray-400 truncate">{result.display_name}</p>
+                <p className="text-sm font-medium text-gray-700 truncate">{getSuggestionTitle(result) || 'Lokasi ditemukan'}</p>
+                <p className="text-xs text-gray-400 truncate">{result?.display_name || getSuggestionTitle(result) || 'Pilih lokasi ini'}</p>
               </button>
             ))}
           </div>
