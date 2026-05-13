@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Map, Marker } from 'pigeon-maps'
 import { MapPin, Loader2, Navigation } from 'lucide-react'
 
@@ -59,11 +59,14 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimerRef = useRef(null)
+  const lastBoundsChangeRef = useRef(0)
 
   const applyLocation = (lat, lng, locationName) => {
     setPosition([lat, lng])
-    setAddress(locationName)
-    const locationLabel = locationName.split(',')[0] || locationName
+    const resolvedName = locationName || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    setAddress(resolvedName)
+    const locationLabel = (resolvedName.split(',')[0] || resolvedName).trim()
     setSearchQuery(locationLabel)
     setSuggestions([])
     setShowSuggestions(false)
@@ -71,24 +74,37 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
     onLocationSelect({
       latitude: lat,
       longitude: lng,
-      address: locationName,
+      address: resolvedName,
     })
   }
 
   const reverseGeocode = async (lat, lng) => {
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=id`
-      )
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const response = await fetch(`${API_URL}/geocode/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`)
       const data = await response.json()
-      const locationName =
-        formatAddressParts(data.address) ||
-        data.display_name ||
-        `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      let locationName = formatAddressParts(data.address) || data.display_name || ''
+
+      // If reverse result is empty or lacks display_name, try a search fallback using lat,lng
+      if (!locationName) {
+        try {
+          const lookup = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&q=${lat},${lng}&limit=1&addressdetails=1&accept-language=id`)
+          const lookupData = await lookup.json()
+          if (Array.isArray(lookupData) && lookupData.length > 0) {
+            locationName = formatAddressParts(lookupData[0].address) || lookupData[0].display_name || ''
+          }
+        } catch (lookupErr) {
+          console.warn('Reverse lookup fallback failed:', lookupErr)
+        }
+      }
+
+      if (!locationName) locationName = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
       applyLocation(lat, lng, locationName)
     } catch (err) {
       console.error('Reverse geocoding error:', err)
-      applyLocation(lat, lng, 'Lokasi terpilih')
+      // Fallback to coordinates so the selection is meaningful in the form
+      const coordLabel = `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+      applyLocation(lat, lng, coordLabel)
     }
   }
 
@@ -101,16 +117,28 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
 
     setSearchLoading(true)
     try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
       const isIndonesiaQuery = /jakarta|bandung|surabaya|indonesia|jawa|bali|medan|semarang|makassar/i.test(query)
       const countryParam = isIndonesiaQuery ? '&countrycodes=id' : ''
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}${countryParam}&addressdetails=1&dedupe=1&limit=8&accept-language=id`
-      )
+      const searchUrl = `${API_URL}/geocode/search?q=${encodeURIComponent(query)}${countryParam}`
+      console.log('🔍 Searching:', searchUrl)
+      const response = await fetch(searchUrl)
+      console.log('📡 Response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
       const data = await response.json()
-      setSuggestions(Array.isArray(data) ? data : [])
-      setShowSuggestions(true)
+      console.log('📦 Suggestions data:', data)
+      
+      // Handle if data is array or wrapped in a property
+      const suggestions = Array.isArray(data) ? data : (data?.results || data?.data || [])
+      console.log('✅ Setting suggestions:', suggestions.length, 'items')
+      setSuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
     } catch (err) {
-      console.error('Search error:', err)
+      console.error('❌ Search error:', err)
       setSuggestions([])
     } finally {
       setSearchLoading(false)
@@ -121,8 +149,10 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const handleSearchChange = (e) => {
     const query = e.target.value
     setSearchQuery(query)
+    // debounce calls to Nominatim to avoid rate-limiting and improve responsiveness
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     if (query.trim()) {
-      searchLocation(query)
+      searchTimerRef.current = setTimeout(() => searchLocation(query), 300)
     } else {
       setSuggestions([])
       setShowSuggestions(false)
@@ -133,7 +163,7 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
   const selectFromSearch = (result) => {
     const lat = parseFloat(result.lat)
     const lng = parseFloat(result.lon)
-    const name = formatSuggestionLabel(result) || result.display_name
+    const name = formatSuggestionLabel(result) || result.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
 
     setZoom(15)
     applyLocation(lat, lng, name)
@@ -208,20 +238,25 @@ export default function MapLocationPicker({ onLocationSelect, initialLocation = 
 
       <div className="border-2 border-gray-300 rounded-lg overflow-hidden h-80 bg-gray-100">
         <Map
-          height={320}
-          center={position}
-          zoom={zoom}
-          minZoom={3}
-          maxZoom={18}
-          onBoundsChanged={({ center, zoom: nextZoom }) => {
-            setPosition(center)
-            setZoom(nextZoom)
-          }}
-          onClick={({ latLng }) => {
-            const [lat, lng] = latLng
-            reverseGeocode(lat, lng)
-          }}
-        >
+            height={320}
+            center={position}
+            zoom={zoom}
+            minZoom={3}
+            maxZoom={18}
+            onBoundsChanged={({ center, zoom: nextZoom }) => {
+              // Throttle frequent updates while user pans to avoid UI jank
+              const now = Date.now()
+              if (!lastBoundsChangeRef.current || now - lastBoundsChangeRef.current > 150) {
+                setPosition(center)
+                setZoom(nextZoom)
+                lastBoundsChangeRef.current = now
+              }
+            }}
+            onClick={({ latLng }) => {
+              const [lat, lng] = latLng
+              reverseGeocode(lat, lng)
+            }}
+          >
           <Marker width={44} anchor={position} />
         </Map>
       </div>

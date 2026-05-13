@@ -6,7 +6,7 @@ console.log('[APP] Starting backend initialization...');
 
 let db = null;
 let firebaseReady = false;
-let authRoutes, userRoutes, adminRoutes, eventRoutes, articleRoutes;
+let authRoutes, userRoutes, adminRoutes, eventRoutes, articleRoutes, geocodeRoutes;
 
 try {
   // ✅ INITIALIZE DATABASE DULU
@@ -22,6 +22,8 @@ try {
   adminRoutes = require('./routes/adminRoutes');
   eventRoutes = require('./routes/eventRoutes');
   articleRoutes = require('./routes/articleRoutes');
+  // geocode proxy route
+  geocodeRoutes = require('./routes/geocodeRoutes');
 
   console.log('[APP] All modules loaded successfully');
 } catch (initErr) {
@@ -79,6 +81,7 @@ if (userRoutes) app.use('/api/user', userRoutes);
 if (adminRoutes) app.use('/api/admin', adminRoutes);
 if (eventRoutes) app.use('/api/events', eventRoutes);
 if (articleRoutes) app.use('/api', articleRoutes);
+if (geocodeRoutes) app.use('/api/geocode', geocodeRoutes);
 
 // ✅ HEALTH CHECK
 app.get('/health', (req, res) => {

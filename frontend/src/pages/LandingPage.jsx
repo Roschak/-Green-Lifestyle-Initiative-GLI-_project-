@@ -151,6 +151,7 @@ export default function LandingPage() {
   }
 
   const boardEvents = events.filter(event => {
+    if (boardFilter === 'pendaftaran') return event.status === 'roundown'
     if (boardFilter === 'berlangsung') return event.status === 'dilaksanakan'
     if (boardFilter === 'berakhir') return event.status === 'berakhir'
     return true
@@ -237,6 +238,7 @@ export default function LandingPage() {
 
           <div className="flex gap-3 mb-6">
             {[
+              { key: 'pendaftaran', label: 'Pendaftaran' },
               { key: 'berlangsung', label: 'Berlangsung' },
               { key: 'berakhir', label: 'Berakhir' },
             ].map(tab => (
