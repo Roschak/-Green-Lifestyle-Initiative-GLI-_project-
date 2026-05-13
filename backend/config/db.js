@@ -38,14 +38,19 @@ if (!admin.apps.length) {
             console.log('✅ Firebase credential created from environment variables');
         }
 
+        const storageBucket = process.env.FIREBASE_STORAGE_BUCKET ||
+            (process.env.FIREBASE_PROJECT_ID ? `${process.env.FIREBASE_PROJECT_ID}.appspot.com` : undefined);
+
         admin.initializeApp({
             credential: credential,
+            storageBucket,
             ignoreUndefinedProperties: true
         });
 
         const project = process.env.FIREBASE_PROJECT_ID || 'unknown';
         console.log('✅ Firebase Admin SDK initialized');
         console.log(`📁 Project: ${project}`);
+        console.log(`🪣 Storage bucket: ${storageBucket || 'DEFAULT'}`);
 
         db = admin.firestore();
         firebaseReady = true;

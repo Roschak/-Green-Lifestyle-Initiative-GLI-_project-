@@ -6,7 +6,8 @@ const admin = require('firebase-admin');
 let bucket = null;
 const getBucket = () => {
     if (!bucket) {
-        bucket = admin.storage().bucket();
+        const configuredBucket = process.env.FIREBASE_STORAGE_BUCKET || admin.app()?.options?.storageBucket;
+        bucket = configuredBucket ? admin.storage().bucket(configuredBucket) : admin.storage().bucket();
     }
     return bucket;
 };

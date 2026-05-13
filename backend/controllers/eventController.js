@@ -149,6 +149,9 @@ exports.createEvent = async (req, res) => {
                     console.error('❌ Failed uploading thumbnail buffer to Firebase Storage:', upErr.message);
                     // Fallback to resolving existing object (may be Cloudinary object)
                     thumbnailUrl = resolveUploadedImageUrl(req.file);
+                    if (!thumbnailUrl) {
+                        console.warn('⚠️ Thumbnail upload failed in hosting, continuing without thumbnail');
+                    }
                 }
             } else {
                 thumbnailUrl = resolveUploadedImageUrl(req.file);
